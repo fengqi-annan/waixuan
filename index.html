@@ -43,12 +43,6 @@
             margin-bottom: 30px;
             border-left: 4px solid #3366FF;
         }
-        .subtitle code {
-            background: #e8ecf1;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 14px;
-        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -80,14 +74,6 @@
             text-decoration: underline;
             color: #FF6B6B;
         }
-        .badge {
-            display: inline-block;
-            background: #e8ecf1;
-            padding: 0 10px;
-            border-radius: 12px;
-            font-size: 13px;
-            color: #555;
-        }
         .section-title {
             font-size: 20px;
             font-weight: 600;
@@ -107,33 +93,98 @@
         .usage-list li {
             margin-bottom: 4px;
         }
-        .tool-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px 30px;
-            margin: 12px 0 10px;
+
+        /* ----- 合并后的“维护”区块 ----- */
+        .maintenance-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px 40px;
+            background: #f8faff;
+            padding: 24px 28px;
+            border-radius: 12px;
+            margin: 10px 0 20px;
+            border: 1px solid #e8ecf1;
+            align-items: stretch;
         }
-        .tool-item {
+        .maintenance-left {
+            flex: 2;
+            min-width: 280px;
+        }
+        .maintenance-right {
+            flex: 1;
+            min-width: 160px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+        }
+        .maintenance-left .tool-item {
             display: flex;
             align-items: baseline;
             padding: 6px 0;
-            border-bottom: 1px dashed #f0f0f0;
+            border-bottom: 1px dashed #e0e4ea;
         }
-        .tool-item a {
+        .maintenance-left .tool-item:last-child {
+            border-bottom: none;
+        }
+        .maintenance-left .tool-item a {
             color: #3366FF;
             text-decoration: none;
             font-weight: 500;
-            margin-right: 10px;
+            margin-right: 12px;
             flex-shrink: 0;
         }
-        .tool-item a:hover {
+        .maintenance-left .tool-item a:hover {
             text-decoration: underline;
             color: #FF6B6B;
         }
-        .tool-item .desc {
+        .maintenance-left .tool-item .desc {
             color: #666;
             font-size: 14px;
         }
+        .author-info {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid #e0e4ea;
+        }
+        .author-info p {
+            margin: 5px 0;
+            font-size: 15px;
+        }
+        .author-info a {
+            color: #3366FF;
+            text-decoration: none;
+        }
+        .author-info a:hover {
+            text-decoration: underline;
+        }
+        .qr-grid {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .qr-item {
+            text-align: center;
+        }
+        .qr-item img {
+            width: 110px;
+            height: 110px;
+            border-radius: 10px;
+            border: 2px solid #e0e4ea;
+            background: #fff;
+            padding: 4px;
+            object-fit: contain;
+        }
+        .qr-item span {
+            display: block;
+            margin-top: 4px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        /* 技术栈 */
         .tech-stack {
             background: #f8faff;
             padding: 14px 20px;
@@ -152,56 +203,7 @@
             border: 1px solid #e0e4ea;
             font-size: 13px;
         }
-        /* 作者区域 */
-        .author-section {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 30px;
-            background: #f8faff;
-            padding: 20px 24px;
-            border-radius: 12px;
-            margin: 10px 0 20px;
-            border: 1px solid #e8ecf1;
-            align-items: center;
-        }
-        .author-info {
-            flex: 1;
-            min-width: 200px;
-        }
-        .author-info p {
-            margin: 6px 0;
-            font-size: 15px;
-        }
-        .author-info a {
-            color: #3366FF;
-            text-decoration: none;
-        }
-        .author-info a:hover {
-            text-decoration: underline;
-        }
-        .author-qr {
-            display: flex;
-            gap: 28px;
-            flex-wrap: wrap;
-        }
-        .qr-item {
-            text-align: center;
-        }
-        .qr-item img {
-            width: 120px;
-            height: 120px;
-            border-radius: 10px;
-            border: 2px solid #e0e4ea;
-            background: #fff;
-            padding: 4px;
-            object-fit: contain;
-        }
-        .qr-item span {
-            display: block;
-            margin-top: 6px;
-            font-size: 13px;
-            color: #666;
-        }
+
         .footer-note {
             text-align: center;
             color: #999;
@@ -210,6 +212,7 @@
             border-top: 1px solid #eee;
             padding-top: 18px;
         }
+
         @media (max-width: 700px) {
             .container {
                 padding: 20px 14px;
@@ -221,20 +224,21 @@
             td {
                 padding: 8px 4px;
             }
-            .tool-grid {
-                grid-template-columns: 1fr;
-            }
             h1 {
                 font-size: 22px;
             }
-            .author-section {
+            .maintenance-wrapper {
                 flex-direction: column;
-                align-items: center;
-                text-align: center;
+                padding: 18px 16px;
+            }
+            .maintenance-right {
+                flex-direction: row;
+                justify-content: center;
+                flex-wrap: wrap;
             }
             .qr-item img {
-                width: 100px;
-                height: 100px;
+                width: 90px;
+                height: 90px;
             }
         }
     </style>
@@ -282,43 +286,33 @@
             <li>适合用于 <strong>招聘定位、业务辐射范围分析、团队分布展示</strong></li>
         </ul>
 
-        <!-- ===== 维护工具 ===== -->
-        <div class="section-title"><span class="emoji">🔗</span> 维护工具</div>
-        <div class="tool-grid">
-            <div class="tool-item">
-                <a href="https://datav.aliyun.com/portal/school/atlas/area_selector" target="_blank">阿里云 DataV 区划选择器</a>
-                <span class="desc">下载全国省市区的 GeoJSON 边界数据</span>
+        <!-- ===== 合并后的“维护”区块 ===== -->
+        <div class="section-title"><span class="emoji">🔗</span> 维护</div>
+        <div class="maintenance-wrapper">
+            <!-- 左侧：工具链接 + 作者信息 -->
+            <div class="maintenance-left">
+                <div class="tool-item">
+                    <a href="https://datav.aliyun.com/portal/school/atlas/area_selector" target="_blank">阿里云 DataV 区划选择器</a>
+                    <span class="desc">下载全国省市区的 GeoJSON 边界数据</span>
+                </div>
+                <div class="tool-item">
+                    <a href="https://lbs.amap.com/tools/picker" target="_blank">高德坐标拾取器</a>
+                    <span class="desc">获取基地精确经纬度坐标</span>
+                </div>
+                <div class="tool-item">
+                    <a href="https://console.amap.com/dev/key/app" target="_blank">高德控制台</a>
+                    <span class="desc">管理 API Key，配置域名白名单</span>
+                </div>
+                <div class="author-info">
+                    <p><strong>📧 邮箱：</strong><a href="mailto:ananoff@foxmail.com">ananoff@foxmail.com</a></p>
+                    <p><strong>💬 微信：</strong>加好友请备注“地图”或“合作”</p>
+                    <p style="font-size:14px;color:#888;margin-top:4px;">⬇️ 右侧扫码加好友 · 或扫码请我喝杯咖啡 ☕</p>
+                </div>
             </div>
-            <div class="tool-item">
-                <a href="https://lbs.amap.com/tools/picker" target="_blank">高德坐标拾取器</a>
-                <span class="desc">获取基地精确经纬度坐标</span>
-            </div>
-            <div class="tool-item">
-                <a href="https://console.amap.com/dev/key/app" target="_blank">高德控制台</a>
-                <span class="desc">管理 API Key，配置域名白名单</span>
-            </div>
-        </div>
-
-        <!-- ===== 技术栈 ===== -->
-        <div class="section-title"><span class="emoji">🛠</span> 技术栈</div>
-        <div class="tech-stack">
-            <span>高德地图 JavaScript API 2.0</span>
-            <span>DataV.GeoAtlas 行政区划边界数据</span>
-            <span>纯前端 HTML + CSS + JavaScript</span>
-            <span style="background:#f0f4ff;border-color:#d0d8e8;">无需后端服务</span>
-        </div>
-
-       <!-- ===== 关于作者 ===== -->
-        <div class="section-title"><span class="emoji">👤</span> 关于作者</div>
-        <div class="author-section">
-            <div class="author-info">
-                <p><strong>📧 邮箱：</strong><a href="mailto:ananoff@foxmail.com">ananoff@foxmail.com</a></p>
-                <p><strong>💬 微信：</strong>扫码联系（请备注“地图”或“合作”）</p>
-                <p style="font-size:14px;color:#888;margin-top:8px;">⬇️ 左侧扫码加好友 · 右侧可请我喝杯咖啡 ☕</p>
-            </div>
-            <div class="author-qr">
+            <!-- 右侧：二维码图片 -->
+            <div class="maintenance-right">
                 <div class="qr-item">
-                    <img src="wechat.jpg" alt="19205171557" />
+                    <img src="wechat.jpg" alt="微信号：ananoff" />
                     <span>加我好友</span>
                 </div>
                 <div class="qr-item">
@@ -326,6 +320,15 @@
                     <span>请我喝杯咖啡</span>
                 </div>
             </div>
+        </div>
+
+        <!-- ===== 技术栈（放到最后） ===== -->
+        <div class="section-title"><span class="emoji">🛠</span> 技术栈</div>
+        <div class="tech-stack">
+            <span>高德地图 JavaScript API 2.0</span>
+            <span>DataV.GeoAtlas 行政区划边界数据</span>
+            <span>纯前端 HTML + CSS + JavaScript</span>
+            <span style="background:#f0f4ff;border-color:#d0d8e8;">无需后端服务</span>
         </div>
 
         <div class="footer-note">
