@@ -4,7 +4,7 @@
 
 | 城市 | 链接 |
 |------|------|
-| 杭州 | [https://fengqi-annan.github.io/waixuan/%E6%9D%AD%E5%B7%9E.html](https://fengqi-annan.github.io/waixuan/%E6%9D%AD%E5%B7%9E.html) |
-| 郑州 | [https://fengqi-annan.github.io/waixuan/%E9%83%91%E5%B7%9E.html](https://fengqi-annan.github.io/waixuan/%E9%83%91%E5%B7%9E.html) |
-| 西安 | [https://fengqi-annan.github.io/waixuan/%E8%A5%BF%E5%AE%89.html](https://fengqi-annan.github.io/waixuan/%E8%A5%BF%E5%AE%89.html) |
-| 济南 | [https://fengqi-annan.github.io/waixuan/%E6%B5%8E%E5%8D%97.html](https://fengqi-annan.github.io/waixuan/%E6%B5%8E%E5%8D%97.html) |
+| 杭州 | [https://fengqi-annan.github.io/waixuan/杭州.html](https://fengqi-annan.github.io/waixuan/%E6%9D%AD%E5%B7%9E.html) |
+| 郑州 | [https://fengqi-annan.github.io/waixuan/郑州.html](https://fengqi-annan.github.io/waixuan/%E9%83%91%E5%B7%9E.html) |
+| 西安 | [https://fengqi-annan.github.io/waixuan/西安.html](https://fengqi-annan.github.io/waixuan/%E8%A5%BF%E5%AE%89.html) |
+| 济南 | [https://fengqi-annan.github.io/waixuan/济南.html](https://fengqi-annan.github.io/waixuan/%E6%B5%8E%E5%8D%97.html) |
