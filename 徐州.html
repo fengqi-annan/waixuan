@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>郑州公司基地分布</title>
+    <title>徐州公司基地分布</title>
     <style>
         html, body { margin: 0; height: 100%; }
         #container { width: 100%; height: 100%; }
@@ -32,11 +32,12 @@
         const AMAP_SECURITY = 'e093383a2c9378174173d663ea800dbb';
 
         const baseLocations = [
-            { name: '管城基地', lng: 113.67570, lat: 34.722479 },
-            { name: '金水基地', lng: 113.695997, lat: 34.775922 }
+            { name: '贾汪基地', lng: 117.289725, lat: 34.268725 },
+            { name: '鼓楼基地', lng: 117.179488, lat: 34.273124 },
+            { name: '邳州基地', lng: 117.950381, lat: 34.331705 }  // 距离较远
         ];
 
-        const GEO_URL = './zhengzhou.geojson';
+        const GEO_URL = './xuzhou.geojson';
 
         if (AMAP_SECURITY && AMAP_SECURITY !== '请替换为你的安全密钥') {
             window._AMapSecurityConfig = { securityJsCode: AMAP_SECURITY };
@@ -61,13 +62,12 @@
                 document.getElementById('loading').style.display = 'none';
 
                 const map = new AMap.Map('container', {
-                    center: [113.6607, 34.7497],
+                    center: [117.1844, 34.2618],
                     zoom: 11,
                     mapStyle: 'amap://styles/light',
                     viewMode: '2D'
                 });
 
-                // 加载区县边界
                 fetch(GEO_URL)
                     .then(response => {
                         if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -109,8 +109,13 @@
                         document.getElementById('loading').style.color = '#e74c3c';
                     });
 
-                // 添加基地标记和10公里圆
+                // ★★★ 存储需要聚焦的覆盖物（只包含近的基地） ★★★
+                const focusTargets = [];
+
                 baseLocations.forEach(item => {
+                    // 判断是否为“近的基地”（鼓楼和贾汪）
+                    const isNear = (item.name === '鼓楼基地' || item.name === '贾汪基地');
+
                     const marker = new AMap.Marker({
                         position: [item.lng, item.lat],
                         title: item.name,
@@ -138,10 +143,23 @@
                         fillOpacity: 0
                     });
                     circle.setMap(map);
+
+                    // ★★★ 如果是近的基地，把标记和圆都加入聚焦列表 ★★★
+                    if (isNear) {
+                        focusTargets.push(marker);
+                        focusTargets.push(circle);
+                    }
                 });
 
                 map.addControl(new AMap.ToolBar({ position: 'RT' }));
-                map.setFitView();
+
+                // ★★★ 只对近的基地进行自适应聚焦 ★★★
+                if (focusTargets.length > 0) {
+                    map.setFitView(focusTargets);
+                } else {
+                    map.setFitView(); // 保底方案
+                }
+
                 console.log('🎉 地图加载完成！');
             })
             .catch(err => {
