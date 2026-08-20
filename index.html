@@ -74,6 +74,8 @@
             text-decoration: underline;
             color: #FF6B6B;
         }
+
+        /* 统一标题样式 */
         .section-title {
             font-size: 20px;
             font-weight: 600;
@@ -85,6 +87,7 @@
         .section-title .emoji {
             margin-right: 8px;
         }
+
         .usage-list {
             padding-left: 22px;
             margin: 10px 0 16px;
@@ -94,30 +97,22 @@
             margin-bottom: 4px;
         }
 
-        /* ----- 合并后的“维护”区块 ----- */
+        /* ===== 维护区块（统一容器） ===== */
         .maintenance-wrapper {
             display: flex;
             flex-wrap: wrap;
-            gap: 30px 40px;
             background: #f8faff;
-            padding: 24px 28px;
             border-radius: 12px;
-            margin: 10px 0 20px;
             border: 1px solid #e8ecf1;
-            align-items: stretch;
+            overflow: hidden; /* 让圆角统一 */
+            margin: 10px 0 20px;
         }
+
+        /* 左栏：文字信息（占50%） */
         .maintenance-left {
-            flex: 2;
+            flex: 1 1 50%;
+            padding: 24px 28px;
             min-width: 280px;
-        }
-        .maintenance-right {
-            flex: 1;
-            min-width: 160px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            gap: 16px;
         }
         .maintenance-left .tool-item {
             display: flex;
@@ -159,28 +154,40 @@
         .author-info a:hover {
             text-decoration: underline;
         }
-        .qr-grid {
+
+        /* 右栏：两张图片（占50%，内部各占一半） */
+        .maintenance-right {
+            flex: 1 1 50%;
             display: flex;
-            gap: 24px;
+            padding: 16px;
+            gap: 12px;
+            align-items: center;
             justify-content: center;
-            flex-wrap: wrap;
+            background: #ffffff;
+            min-width: 200px;
         }
         .qr-item {
+            flex: 1 1 0;          /* 各占一半 */
             text-align: center;
+            min-width: 80px;
         }
         .qr-item img {
-            width: 110px;
-            height: 110px;
+            width: 100%;
+            max-width: 200px;      /* 限制最大宽度，避免过大 */
+            height: auto;
+            aspect-ratio: 1 / 1;   /* 保持正方形 */
             border-radius: 10px;
             border: 2px solid #e0e4ea;
             background: #fff;
             padding: 4px;
             object-fit: contain;
+            display: block;
+            margin: 0 auto;
         }
         .qr-item span {
             display: block;
-            margin-top: 4px;
-            font-size: 13px;
+            margin-top: 6px;
+            font-size: 14px;
             color: #555;
         }
 
@@ -213,7 +220,8 @@
             padding-top: 18px;
         }
 
-        @media (max-width: 700px) {
+        /* ===== 窄屏适配 ===== */
+        @media (max-width: 768px) {
             .container {
                 padding: 20px 14px;
             }
@@ -229,16 +237,23 @@
             }
             .maintenance-wrapper {
                 flex-direction: column;
+            }
+            .maintenance-left {
+                flex: 1 1 auto;
                 padding: 18px 16px;
             }
             .maintenance-right {
+                flex: 1 1 auto;
                 flex-direction: row;
-                justify-content: center;
-                flex-wrap: wrap;
+                padding: 12px 16px 18px;
+                gap: 16px;
+            }
+            .qr-item {
+                flex: 1 1 0;
+                min-width: 60px;
             }
             .qr-item img {
-                width: 90px;
-                height: 90px;
+                max-width: 150px;
             }
         }
     </style>
@@ -286,10 +301,10 @@
             <li>适合用于 <strong>招聘定位、业务辐射范围分析、团队分布展示</strong></li>
         </ul>
 
-        <!-- ===== 合并后的“维护”区块 ===== -->
+        <!-- ===== 维护区块（统一标题、统一容器） ===== -->
         <div class="section-title"><span class="emoji">🔗</span> 维护</div>
         <div class="maintenance-wrapper">
-            <!-- 左侧：工具链接 + 作者信息 -->
+            <!-- 左栏：文字信息 -->
             <div class="maintenance-left">
                 <div class="tool-item">
                     <a href="https://datav.aliyun.com/portal/school/atlas/area_selector" target="_blank">阿里云 DataV 区划选择器</a>
@@ -309,7 +324,7 @@
                     <p style="font-size:14px;color:#888;margin-top:4px;">⬇️ 右侧扫码加好友 · 或扫码请我喝杯咖啡 ☕</p>
                 </div>
             </div>
-            <!-- 右侧：二维码图片 -->
+            <!-- 右栏：两张图片，各占一半 -->
             <div class="maintenance-right">
                 <div class="qr-item">
                     <img src="wechat.jpg" alt="微信号：ananoff" />
@@ -322,7 +337,7 @@
             </div>
         </div>
 
-        <!-- ===== 技术栈（放到最后） ===== -->
+        <!-- ===== 技术栈 ===== -->
         <div class="section-title"><span class="emoji">🛠</span> 技术栈</div>
         <div class="tech-stack">
             <span>高德地图 JavaScript API 2.0</span>
