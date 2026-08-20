@@ -4,7 +4,7 @@
 
 | 城市 | 基地数量 | 基地分布（按笔画逆序） | 链接 | 更新时间 | 区号代码 | 简称 |
 | :---: | :---: | --- | :---: | :---: | :---: | :---: |
-| 杭州 | 4 | 拱墅、滨江、西湖、余杭 | [查看地图](https://fengqi-annan.github.io/waixuan/%E6%9D%AD%E5%B7%9E.html) | 260820 | 330100 | 杭 |
+| 杭州 | 5 | 拱墅、滨江、富阳、西湖、余杭 | [查看地图](https://fengqi-annan.github.io/waixuan/%E6%9D%AD%E5%B7%9E.html) | 260820 | 330100 | 杭 |
 | 郑州 | 2 | 管城、金水 | [查看地图](https://fengqi-annan.github.io/waixuan/%E9%83%91%E5%B7%9E.html) | 260820 | 410100 | 郑 |
 | 西安 | 2 | 雁塔、莲湖 | [查看地图](https://fengqi-annan.github.io/waixuan/%E8%A5%BF%E5%AE%89.html) | 260820 | 610100 | 镐 |
 | 济南 | 2 | 历城、天桥 | [查看地图](https://fengqi-annan.github.io/waixuan/%E6%B5%8E%E5%8D%97.html) | 260820 | 370100 | 济 |
