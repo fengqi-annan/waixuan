@@ -21,12 +21,11 @@
 
 ### 🔗 维护工具
 
-| 工具名称 | 链接 | 用途 |
-| :---: | --- | --- |
-| 阿里云 DataV 区划选择器 | https://datav.aliyun.com/portal/school/atlas/area_selector | 下载全国省市区的 GeoJSON 边界数据 |
-| 高德控制台 | https://console.amap.com/dev/key/app | 管理 API Key，配置域名白名单 |
-| 高德坐标拾取器 | https://lbs.amap.com/tools/picker | 获取基地精确经纬度坐标 |
-| 高德开放平台 | https://lbs.amap.com/ | 地图服务总入口，申请 Key 及查看文档 |
+| 工具 | 用途 |
+| :--- | --- |
+| [阿里云 DataV 区划选择器](https://datav.aliyun.com/portal/school/atlas/area_selector) | 下载全国省市区的 GeoJSON 边界数据 |
+| [高德坐标拾取器](https://lbs.amap.com/tools/picker) | 获取基地精确经纬度坐标 |
+| [高德控制台](https://console.amap.com/dev/key/app) | 管理 API Key，配置域名白名单 |
 
 ---
 
