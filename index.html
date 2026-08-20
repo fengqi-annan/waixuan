@@ -152,6 +152,56 @@
             border: 1px solid #e0e4ea;
             font-size: 13px;
         }
+        /* 作者区域 */
+        .author-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            background: #f8faff;
+            padding: 20px 24px;
+            border-radius: 12px;
+            margin: 10px 0 20px;
+            border: 1px solid #e8ecf1;
+            align-items: center;
+        }
+        .author-info {
+            flex: 1;
+            min-width: 200px;
+        }
+        .author-info p {
+            margin: 6px 0;
+            font-size: 15px;
+        }
+        .author-info a {
+            color: #3366FF;
+            text-decoration: none;
+        }
+        .author-info a:hover {
+            text-decoration: underline;
+        }
+        .author-qr {
+            display: flex;
+            gap: 28px;
+            flex-wrap: wrap;
+        }
+        .qr-item {
+            text-align: center;
+        }
+        .qr-item img {
+            width: 120px;
+            height: 120px;
+            border-radius: 10px;
+            border: 2px solid #e0e4ea;
+            background: #fff;
+            padding: 4px;
+            object-fit: contain;
+        }
+        .qr-item span {
+            display: block;
+            margin-top: 6px;
+            font-size: 13px;
+            color: #666;
+        }
         .footer-note {
             text-align: center;
             color: #999;
@@ -176,6 +226,15 @@
             }
             h1 {
                 font-size: 22px;
+            }
+            .author-section {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+            .qr-item img {
+                width: 100px;
+                height: 100px;
             }
         }
     </style>
@@ -247,6 +306,26 @@
             <span>DataV.GeoAtlas 行政区划边界数据</span>
             <span>纯前端 HTML + CSS + JavaScript</span>
             <span style="background:#f0f4ff;border-color:#d0d8e8;">无需后端服务</span>
+        </div>
+
+       <!-- ===== 关于作者 ===== -->
+        <div class="section-title"><span class="emoji">👤</span> 关于作者</div>
+        <div class="author-section">
+            <div class="author-info">
+                <p><strong>📧 邮箱：</strong><a href="mailto:ananoff@foxmail.com">ananoff@foxmail.com</a></p>
+                <p><strong>💬 微信：</strong>扫码联系（请备注“地图”或“合作”）</p>
+                <p style="font-size:14px;color:#888;margin-top:8px;">⬇️ 左侧扫码加好友 · 右侧可请我喝杯咖啡 ☕</p>
+            </div>
+            <div class="author-qr">
+                <div class="qr-item">
+                    <img src="wechat.jpg" alt="19205171557" />
+                    <span>加我好友</span>
+                </div>
+                <div class="qr-item">
+                    <img src="reward.png" alt="赞赏码" />
+                    <span>请我喝杯咖啡</span>
+                </div>
+            </div>
         </div>
 
         <div class="footer-note">
