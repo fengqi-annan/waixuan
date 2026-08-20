@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>全国基地分布地图</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            padding: 30px 20px;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            padding: 40px 35px;
+        }
+        h1 {
+            font-size: 28px;
+            color: #1a1a2e;
+            border-bottom: 3px solid #3366FF;
+            padding-bottom: 14px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .subtitle {
+            font-size: 16px;
+            color: #666;
+            background: #f0f4ff;
+            padding: 12px 18px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #3366FF;
+        }
+        .subtitle code {
+            background: #e8ecf1;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 15px;
+            margin: 20px 0 28px;
+        }
+        th {
+            background: #f0f4ff;
+            color: #1a1a2e;
+            font-weight: 600;
+            padding: 12px 10px;
+            text-align: center;
+            border-bottom: 2px solid #3366FF;
+        }
+        td {
+            padding: 11px 10px;
+            text-align: center;
+            border-bottom: 1px solid #e8ecf1;
+        }
+        tr:hover td {
+            background: #f8faff;
+        }
+        td a {
+            color: #3366FF;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        td a:hover {
+            text-decoration: underline;
+            color: #FF6B6B;
+        }
+        .badge {
+            display: inline-block;
+            background: #e8ecf1;
+            padding: 0 10px;
+            border-radius: 12px;
+            font-size: 13px;
+            color: #555;
+        }
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1a1a2e;
+            margin: 30px 0 14px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e8ecf1;
+        }
+        .section-title .emoji {
+            margin-right: 8px;
+        }
+        .usage-list {
+            padding-left: 22px;
+            margin: 10px 0 16px;
+            line-height: 1.8;
+        }
+        .usage-list li {
+            margin-bottom: 4px;
+        }
+        .tool-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px 30px;
+            margin: 12px 0 10px;
+        }
+        .tool-item {
+            display: flex;
+            align-items: baseline;
+            padding: 6px 0;
+            border-bottom: 1px dashed #f0f0f0;
+        }
+        .tool-item a {
+            color: #3366FF;
+            text-decoration: none;
+            font-weight: 500;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        .tool-item a:hover {
+            text-decoration: underline;
+            color: #FF6B6B;
+        }
+        .tool-item .desc {
+            color: #666;
+            font-size: 14px;
+        }
+        .tech-stack {
+            background: #f8faff;
+            padding: 14px 20px;
+            border-radius: 8px;
+            margin-top: 18px;
+            font-size: 14px;
+            color: #555;
+            border: 1px solid #e8ecf1;
+        }
+        .tech-stack span {
+            display: inline-block;
+            background: #fff;
+            padding: 2px 14px;
+            border-radius: 14px;
+            margin: 4px 6px 4px 0;
+            border: 1px solid #e0e4ea;
+            font-size: 13px;
+        }
+        .footer-note {
+            text-align: center;
+            color: #999;
+            font-size: 13px;
+            margin-top: 25px;
+            border-top: 1px solid #eee;
+            padding-top: 18px;
+        }
+        @media (max-width: 700px) {
+            .container {
+                padding: 20px 14px;
+            }
+            table {
+                font-size: 13px;
+            }
+            th,
+            td {
+                padding: 8px 4px;
+            }
+            .tool-grid {
+                grid-template-columns: 1fr;
+            }
+            h1 {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ 全国基地分布地图</h1>
+        <div class="subtitle">
+            📍 基于高德地图 + DataV GeoJSON 构建，展示各城市公司基地分布、区县边界及 <strong>5km</strong> 辐射圈
+        </div>
+
+        <!-- ===== 表格 ===== -->
+        <table>
+            <thead>
+                <tr>
+                    <th>城市</th>
+                    <th>基地数量</th>
+                    <th>基地分布（按笔画逆序）</th>
+                    <th>链接</th>
+                    <th>更新时间</th>
+                    <th>区号代码</th>
+                    <th>简称</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>杭州</td><td>5</td><td>拱墅、滨江、富阳、西湖、余杭</td><td><a href="杭州.html">查看地图</a></td><td>260820</td><td>330100</td><td>杭</td></tr>
+                <tr><td>郑州</td><td>2</td><td>管城、金水</td><td><a href="郑州.html">查看地图</a></td><td>260820</td><td>410100</td><td>郑</td></tr>
+                <tr><td>西安</td><td>2</td><td>雁塔、莲湖</td><td><a href="西安.html">查看地图</a></td><td>260820</td><td>610100</td><td>镐</td></tr>
+                <tr><td>济南</td><td>2</td><td>历城、天桥</td><td><a href="济南.html">查看地图</a></td><td>260820</td><td>370100</td><td>济</td></tr>
+                <tr><td>洛阳</td><td>1</td><td>涧西</td><td><a href="洛阳.html">查看地图</a></td><td>260820</td><td>410300</td><td>洛</td></tr>
+                <tr><td>商丘</td><td>1</td><td>睢阳</td><td><a href="商丘.html">查看地图</a></td><td>260820</td><td>411400</td><td>商</td></tr>
+                <tr><td>徐州</td><td>2</td><td>鼓楼、贾汪</td><td><a href="徐州.html">查看地图</a></td><td>260820</td><td>320300</td><td>徐</td></tr>
+                <tr><td>武汉</td><td>1</td><td>汉阳</td><td><a href="武汉.html">查看地图</a></td><td>260820</td><td>420100</td><td>汉</td></tr>
+                <tr><td>合肥</td><td>1</td><td>蜀山</td><td><a href="合肥.html">查看地图</a></td><td>260820</td><td>340100</td><td>合</td></tr>
+                <tr><td>成都</td><td>1</td><td>双流</td><td><a href="成都.html">查看地图</a></td><td>260820</td><td>510100</td><td>蓉</td></tr>
+            </tbody>
+        </table>
+
+        <!-- ===== 使用说明 ===== -->
+        <div class="section-title"><span class="emoji">📌</span> 使用说明</div>
+        <ul class="usage-list">
+            <li>点击「查看地图」即可进入对应城市的地图页面</li>
+            <li>地图包含：高德底图 + 区县边界 + 蓝色图钉 + 5km 半径圈</li>
+            <li>点击图钉可查看基地名称和精确经纬度，如有错误请及时反馈</li>
+            <li>适合用于 <strong>招聘定位、业务辐射范围分析、团队分布展示</strong></li>
+        </ul>
+
+        <!-- ===== 维护工具 ===== -->
+        <div class="section-title"><span class="emoji">🔗</span> 维护工具</div>
+        <div class="tool-grid">
+            <div class="tool-item">
+                <a href="https://datav.aliyun.com/portal/school/atlas/area_selector" target="_blank">阿里云 DataV 区划选择器</a>
+                <span class="desc">下载全国省市区的 GeoJSON 边界数据</span>
+            </div>
+            <div class="tool-item">
+                <a href="https://lbs.amap.com/tools/picker" target="_blank">高德坐标拾取器</a>
+                <span class="desc">获取基地精确经纬度坐标</span>
+            </div>
+            <div class="tool-item">
+                <a href="https://console.amap.com/dev/key/app" target="_blank">高德控制台</a>
+                <span class="desc">管理 API Key，配置域名白名单</span>
+            </div>
+        </div>
+
+        <!-- ===== 技术栈 ===== -->
+        <div class="section-title"><span class="emoji">🛠</span> 技术栈</div>
+        <div class="tech-stack">
+            <span>高德地图 JavaScript API 2.0</span>
+            <span>DataV.GeoAtlas 行政区划边界数据</span>
+            <span>纯前端 HTML + CSS + JavaScript</span>
+            <span style="background:#f0f4ff;border-color:#d0d8e8;">无需后端服务</span>
+        </div>
+
+        <div class="footer-note">
+            © 2026 全国基地分布地图 · 数据持续更新中
+        </div>
+    </div>
+</body>
+</html>
