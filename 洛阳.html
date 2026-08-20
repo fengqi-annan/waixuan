@@ -138,6 +138,16 @@
                         fillOpacity: 0
                     });
                     circle.setMap(map);
+                    // ★ 新增：10公里半径圆 ★
+                    const circle10km = new AMap.Circle({
+                        center: [item.lng, item.lat],
+                        radius: 10000,
+                        strokeColor: '#000000',
+                        strokeWeight: 1,
+                        fillColor: 'rgba(0,0,0,0)',
+                        fillOpacity: 0
+                    });
+                    circle10km.setMap(map);
                 });
 
                 map.addControl(new AMap.ToolBar({ position: 'RT' }));
