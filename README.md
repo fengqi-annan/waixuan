@@ -2,12 +2,12 @@
 
 > 基于高德地图 + DataV GeoJSON 构建，展示各城市公司基地分布、区县边界及 5km 辐射圈。
 
-| 城市 | 链接 | 基地数量 | 基地分布（按笔画顺序） | 更新时间 | 简称 | 行政区划代码 |
-|------|------|---------|----------------------|---------|------|-------------|
-| 杭州 | [查看地图](https://fengqi-annan.github.io/waixuan/%E6%9D%AD%E5%B7%9E.html) | 4 | 拱墅、滨江、西湖、余杭 | 260820 | 杭 | 330100 |
-| 郑州 | [查看地图](https://fengqi-annan.github.io/waixuan/%E9%83%91%E5%B7%9E.html) | 2 | 管城、金水 | 260820 | 郑 | 410100 |
-| 西安 | [查看地图](https://fengqi-annan.github.io/waixuan/%E8%A5%BF%E5%AE%89.html) | 2 | 雁塔、莲湖 | 260820 | 镐 | 610100 |
-| 济南 | [查看地图](https://fengqi-annan.github.io/waixuan/%E6%B5%8E%E5%8D%97.html) | 2 | 历城、天桥 | 260820 | 济 | 370100 |
+| 城市 | 基地数量 | 基地分布（按笔画顺序） | 链接 | 更新时间 | 区号代码 | 简称 |
+|------|---------|----------------------|------|---------|---------|------|
+| 杭州 | 4 | 拱墅、滨江、西湖、余杭 | [查看地图](https://fengqi-annan.github.io/waixuan/%E6%9D%AD%E5%B7%9E.html) | 260820 | 330100 | 杭 |
+| 郑州 | 2 | 管城、金水 | [查看地图](https://fengqi-annan.github.io/waixuan/%E9%83%91%E5%B7%9E.html) | 260820 | 410100 | 郑 |
+| 西安 | 2 | 雁塔、莲湖 | [查看地图](https://fengqi-annan.github.io/waixuan/%E8%A5%BF%E5%AE%89.html) | 260820 | 610100 | 镐 |
+| 济南 | 2 | 历城、天桥 | [查看地图](https://fengqi-annan.github.io/waixuan/%E6%B5%8E%E5%8D%97.html) | 260820 | 370100 | 济 |
 
 ---
 
