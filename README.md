@@ -9,6 +9,11 @@
 | 西安 | 2 | 雁塔、莲湖 | [查看地图](https://fengqi-annan.github.io/waixuan/%E8%A5%BF%E5%AE%89.html) | 260820 | 610100 | 镐 |
 | 济南 | 2 | 历城、天桥 | [查看地图](https://fengqi-annan.github.io/waixuan/%E6%B5%8E%E5%8D%97.html) | 260820 | 370100 | 济 |
 | 洛阳 | 1 | 涧西 | [查看地图](https://fengqi-annan.github.io/waixuan/%E6%B4%9B%E9%98%B3.html) | 260820 | 410300 | 洛 |
+| 商丘 | 1 | 睢阳 | [查看地图](https://fengqi-annan.github.io/waixuan/%E5%95%86%E4%B8%98.html) | 260820 | 411400 | 商 |
+| 徐州 | 2 | 鼓楼、贾汪 | [查看地图](https://fengqi-annan.github.io/waixuan/%E5%BE%90%E5%B7%9E.html) | 260820 | 320300 | 徐 |
+| 武汉 | 1 | 汉阳 | [查看地图](https://fengqi-annan.github.io/waixuan/%E6%AD%A6%E6%B1%89.html) | 260820 | 420100 | 汉 |
+| 合肥 | 1 | 蜀山 | [查看地图](https://fengqi-annan.github.io/waixuan/%E5%90%88%E8%82%A5.html) | 260820 | 340100 | 合 |
+| 成都 | 1 | 双流 | [查看地图](https://fengqi-annan.github.io/waixuan/%E6%88%90%E9%83%BD.html) | 260820 | 510100 | 蓉 |
 
 ---
 
