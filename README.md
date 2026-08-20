@@ -17,6 +17,19 @@
 - 点击图钉可查看基地名称和精确经纬度，如有错误请及时反馈
 - 适合用于 **招聘定位、业务辐射范围分析、团队分布展示**
 
+---
+
+### 🔗 常用工具链接（编辑维护用）
+
+| 工具名称 | 链接 | 用途 |
+| :---: | --- | --- |
+| 阿里云 DataV 区划选择器 | https://datav.aliyun.com/portal/school/atlas/area_selector | 下载全国省市区的 GeoJSON 边界数据 |
+| 高德控制台 | https://console.amap.com/dev/key/app | 管理 API Key，配置域名白名单 |
+| 高德坐标拾取器 | https://lbs.amap.com/tools/picker | 获取基地精确经纬度坐标 |
+| 高德开放平台 | https://lbs.amap.com/ | 地图服务总入口，申请 Key 及查看文档 |
+
+---
+
 ### 🛠 技术栈
 - 高德地图 JavaScript API 2.0
 - DataV.GeoAtlas 行政区划边界数据
