@@ -76,14 +76,14 @@
             color: #FF6B6B;
         }
 
-        /* 表格基地分布列强制换行 */
-        td:nth-child(3) {
-        word-break: break-word;   /* 允许在单词内换行 */
-        max-width: 200px;         /* 限制最大宽度，可根据需要调整 */
-        white-space: normal;      /* 允许换行 */
+        /* 基地分布列：左对齐 + 自动换行 */
+        td:nth-child(4) {
+            text-align: left;
+            word-break: break-word;
+            max-width: 220px;
+            white-space: normal;
         }
 
-        /* 统一标题样式 */
         .section-title {
             font-size: 20px;
             font-weight: 600;
@@ -105,18 +105,17 @@
             margin-bottom: 4px;
         }
 
-        /* ===== 维护区块（统一容器） ===== */
+        /* ===== 维护区块 ===== */
         .maintenance-wrapper {
             display: flex;
             flex-wrap: wrap;
             background: #f8faff;
             border-radius: 12px;
             border: 1px solid #e8ecf1;
-            overflow: hidden; /* 让圆角统一 */
+            overflow: hidden;
             margin: 10px 0 20px;
         }
 
-        /* 左栏：文字信息（占50%） */
         .maintenance-left {
             flex: 1 1 50%;
             padding: 24px 28px;
@@ -163,7 +162,6 @@
             text-decoration: underline;
         }
 
-        /* 右栏：两张图片（占50%，内部各占一半） */
         .maintenance-right {
             flex: 1 1 50%;
             display: flex;
@@ -175,15 +173,15 @@
             min-width: 200px;
         }
         .qr-item {
-            flex: 1 1 0;          /* 各占一半 */
+            flex: 1 1 0;
             text-align: center;
             min-width: 80px;
         }
         .qr-item img {
             width: 100%;
-            max-width: 200px;      /* 限制最大宽度，避免过大 */
+            max-width: 200px;
             height: auto;
-            aspect-ratio: 1 / 1;   /* 保持正方形 */
+            aspect-ratio: 1 / 1;
             border-radius: 10px;
             border: 2px solid #e0e4ea;
             background: #fff;
@@ -199,7 +197,6 @@
             color: #555;
         }
 
-        /* 技术栈 */
         .tech-stack {
             background: #f8faff;
             padding: 14px 20px;
@@ -228,7 +225,6 @@
             padding-top: 18px;
         }
 
-        /* ===== 窄屏适配 ===== */
         @media (max-width: 768px) {
             .container {
                 padding: 20px 14px;
@@ -306,10 +302,9 @@
             <li>适合用于 <strong>招聘定位、业务辐射范围分析、团队分布展示</strong></li>
         </ul>
 
-        <!-- ===== 维护区块（统一标题、统一容器） ===== -->
+        <!-- ===== 维护区块 ===== -->
         <div class="section-title"><span class="emoji">🔗</span> 维护</div>
         <div class="maintenance-wrapper">
-            <!-- 左栏：文字信息 -->
             <div class="maintenance-left">
                 <div class="tool-item">
                     <a href="https://datav.aliyun.com/portal/school/atlas/area_selector" target="_blank">阿里云 DataV 区划选择器</a>
@@ -329,7 +324,6 @@
                     <p style="font-size:14px;color:#888;margin-top:4px;">⬇️ 右侧扫码加好友 · 或扫码请我喝杯咖啡 ☕</p>
                 </div>
             </div>
-            <!-- 右栏：两张图片，各占一半 -->
             <div class="maintenance-right">
                 <div class="qr-item">
                     <img src="wechat.jpg" alt="微信号：ananoff" />
