@@ -76,6 +76,13 @@
             color: #FF6B6B;
         }
 
+        /* 表格基地分布列强制换行 */
+        td:nth-child(3) {
+        word-break: break-word;   /* 允许在单词内换行 */
+        max-width: 200px;         /* 限制最大宽度，可根据需要调整 */
+        white-space: normal;      /* 允许换行 */
+        }
+
         /* 统一标题样式 */
         .section-title {
             font-size: 20px;
@@ -274,20 +281,19 @@
                     <th>基地数量</th>
                     <th>基地分布（按笔画逆序）</th>
                     <th>链接</th>
-                    <th>简称</th>
                 </tr>
             </thead>
             <tbody>
-                <tr><td>杭州</td><td>5</td><td>拱墅、滨江、富阳、西湖、余杭</td><td><a href="杭州.html">查看地图</a></td><td>杭</td></tr>
-                <tr><td>郑州</td><td>2</td><td>管城、金水</td><td><a href="郑州.html">查看地图</a></td><td>郑</td></tr>
-                <tr><td>西安</td><td>2</td><td>雁塔、莲湖</td><td><a href="西安.html">查看地图</a></td><td>镐</td></tr>
-                <tr><td>济南</td><td>2</td><td>历城、天桥</td><td><a href="济南.html">查看地图</a></td><td>济</td></tr>
-                <tr><td>洛阳</td><td>1</td><td>涧西</td><td><a href="洛阳.html">查看地图</a></td><td>洛</td></tr>
-                <tr><td>商丘</td><td>1</td><td>睢阳</td><td><a href="商丘.html">查看地图</a></td><td>商</td></tr>
-                <tr><td>徐州</td><td>2</td><td>鼓楼、贾汪</td><td><a href="徐州.html">查看地图</a></td><td>徐</td></tr>
-                <tr><td>武汉</td><td>1</td><td>汉阳</td><td><a href="武汉.html">查看地图</a></td><td>汉</td></tr>
-                <tr><td>合肥</td><td>1</td><td>蜀山</td><td><a href="合肥.html">查看地图</a></td><td>合</td></tr>
-                <tr><td>成都</td><td>1</td><td>双流</td><td><a href="成都.html">查看地图</a></td><td>蓉</td></tr>
+                <tr><td>杭州</td><td>5</td><td>拱墅、滨江、富阳、西湖、余杭</td><td><a href="杭州.html">查看地图</a></td></tr>
+                <tr><td>郑州</td><td>2</td><td>管城、金水</td><td><a href="郑州.html">查看地图</a></td></tr>
+                <tr><td>西安</td><td>2</td><td>雁塔、莲湖</td><td><a href="西安.html">查看地图</a></td></tr>
+                <tr><td>济南</td><td>2</td><td>历城、天桥</td><td><a href="济南.html">查看地图</a></td></tr>
+                <tr><td>洛阳</td><td>1</td><td>涧西</td><td><a href="洛阳.html">查看地图</a></td></tr>
+                <tr><td>商丘</td><td>1</td><td>睢阳</td><td><a href="商丘.html">查看地图</a></td></tr>
+                <tr><td>徐州</td><td>2</td><td>鼓楼、贾汪</td><td><a href="徐州.html">查看地图</a></td></tr>
+                <tr><td>武汉</td><td>1</td><td>汉阳</td><td><a href="武汉.html">查看地图</a></td></tr>
+                <tr><td>合肥</td><td>1</td><td>蜀山</td><td><a href="合肥.html">查看地图</a></td></tr>
+                <tr><td>成都</td><td>1</td><td>双流</td><td><a href="成都.html">查看地图</a></td></tr>
             </tbody>
         </table>
 
