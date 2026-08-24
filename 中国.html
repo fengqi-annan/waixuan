@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>全国基地分布总览</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
+    <style>
+        html, body { margin: 0; height: 100%; }
+        #container { width: 100%; height: 100%; }
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: #666;
+            background: #fff;
+            padding: 20px 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            z-index: 999;
+            text-align: center;
+        }
+        #status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            color: #0f0;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            z-index: 1000;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">⏳ 加载全国地图数据中...</div>
+    <div id="container"></div>
+    <div id="status">正在加载...</div>
+
+    <script>
+        const AMAP_KEY = '68793e3c2509e3cc24cd86a04f55175f';
+        const AMAP_SECURITY = 'e093383a2c9378174173d663ea800dbb';
+
+        // ---------- 所有城市数据 ----------
+        const cities = [
+            {
+                name: '成都',
+                geojson: './chengdu.geojson',
+                locations: [{ name: '双流基地', lng: 104.071389, lat: 30.503426 }],
+                radius: 10000  // 成都使用 10km 半径（如原文件）
+            },
+            {
+                name: '杭州',
+                geojson: './hangzhou.geojson',
+                locations: [
+                    { name: '余杭基地', lng: 120.030657, lat: 30.242448 },
+                    { name: '拱墅基地', lng: 120.12167, lat: 30.322637 },
+                    { name: '滨江基地', lng: 120.212561, lat: 30.177514 },
+                    { name: '西湖基地', lng: 120.097021, lat: 30.268681 },
+                    { name: '富阳基地', lng: 119.991809, lat: 30.14373 }
+                ],
+                radius: 5000
+            },
+            {
+                name: '合肥',
+                geojson: './hefei.geojson',
+                locations: [{ name: '蜀山基地', lng: 117.209567, lat: 31.83644 }],
+                radius: 10000
+            },
+            {
+                name: '济南',
+                geojson: './jinan.geojson',
+                locations: [
+                    { name: '历城基地', lng: 117.071485, lat: 36.694788 },
+                    { name: '天桥基地', lng: 117.019532, lat: 36.690923 }
+                ],
+                radius: 5000
+            },
+            {
+                name: '洛阳',
+                geojson: './luoyang.geojson',
+                locations: [{ name: '涧西基地', lng: 112.397339, lat: 34.64523 }],
+                radius: 5000
+            },
+            {
+                name: '商丘',
+                geojson: './shangqiu.geojson',
+                locations: [{ name: '睢阳基地', lng: 115.658608, lat: 34.406909 }],
+                radius: 10000
+            },
+            {
+                name: '武汉',
+                geojson: './wuhan.geojson',
+                locations: [{ name: '汉阳基地', lng: 114.256798, lat: 30.531055 }],
+                radius: 10000
+            },
+            {
+                name: '西安',
+                geojson: './xian.geojson',
+                locations: [
+                    { name: '雁塔基地', lng: 108.872867, lat: 34.209048 },
+                    { name: '莲湖基地', lng: 108.884328, lat: 34.278724 }
+                ],
+                radius: 5000
+            },
+            {
+                name: '徐州',
+                geojson: './xuzhou.geojson',
+                locations: [
+                    { name: '贾汪基地', lng: 117.289725, lat: 34.268725 },
+                    { name: '鼓楼基地', lng: 117.179488, lat: 34.273124 },
+                    { name: '邳州基地', lng: 117.950381, lat: 34.331705 }
+                ],
+                radius: 5000,
+                // 徐州有远距离基地，聚焦时忽略邳州
+                focusExclude: ['邳州基地']
+            },
+            {
+                name: '郑州',
+                geojson: './zhengzhou.geojson',
+                locations: [
+                    { name: '管城基地', lng: 113.67570, lat: 34.722479 },
+                    { name: '金水基地', lng: 113.695997, lat: 34.775922 }
+                ],
+                radius: 5000
+            }
+        ];
+
+        // ---------- 安全密钥 ----------
+        if (AMAP_SECURITY && AMAP_SECURITY !== '请替换为你的安全密钥') {
+            window._AMapSecurityConfig = { securityJsCode: AMAP_SECURITY };
+        }
+
+        // ---------- 加载高德地图 ----------
+        function loadAMap() {
+            return new Promise((resolve, reject) => {
+                if (document.querySelector('script[src*="webapi.amap.com/maps"]')) {
+                    return resolve();
+                }
+                const script = document.createElement('script');
+                script.src =
+                    `https://webapi.amap.com/maps?v=2.0&key=${AMAP_KEY}&plugin=AMap.ToolBar,AMap.GeoJSON`;
+                script.onload = resolve;
+                script.onerror = () => reject(new Error('高德地图 API 加载失败'));
+                document.head.appendChild(script);
+            });
+        }
+
+        // ---------- 主逻辑 ----------
+        loadAMap()
+            .then(() => {
+                document.getElementById('loading').style.display = 'none';
+
+                const map = new AMap.Map('container', {
+                    center: [104, 35],   // 中国大致中心
+                    zoom: 5,
+                    mapStyle: 'amap://styles/light',
+                    viewMode: '2D'
+                });
+
+                // 用于收集所有需要聚焦的元素（基地标记和圆）
+                const focusTargets = [];
+
+                // 计数器，用于跟踪 GeoJSON 加载完成
+                let loadedCount = 0;
+                const totalCities = cities.length;
+
+                // 更新状态
+                function updateStatus(msg) {
+                    document.getElementById('status').textContent = msg;
+                }
+
+                // 依次加载每个城市的 GeoJSON
+                cities.forEach((city, index) => {
+                    fetch(city.geojson)
+                        .then(response => {
+                            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                            return response.json();
+                        })
+                        .then(geoJson => {
+                            if (!geoJson.features || geoJson.features.length === 0) {
+                                throw new Error('GeoJSON 数据为空');
+                            }
+                            // 绘制该城市边界
+                            const geoJsonLayer = new AMap.GeoJSON({
+                                geoJSON: geoJson,
+                                getPolygon: function(geojson, lnglats) {
+                                    const colors = [
+                                        'rgba(255, 193, 7, 0.06)',
+                                        'rgba(0, 188, 212, 0.06)',
+                                        'rgba(76, 175, 80, 0.06)',
+                                        'rgba(255, 87, 34, 0.05)',
+                                        'rgba(156, 39, 176, 0.05)',
+                                        'rgba(63, 81, 181, 0.06)'
+                                    ];
+                                    const color = colors[Math.floor(Math.random() * colors.length)];
+                                    return new AMap.Polygon({
+                                        path: lnglats,
+                                        strokeColor: '#3366FF',
+                                        strokeWeight: 2.5,
+                                        fillColor: color,
+                                        strokeStyle: 'solid'
+                                    });
+                                }
+                            });
+                            map.add(geoJsonLayer);
+                            loadedCount++;
+                            updateStatus(`已加载 ${loadedCount}/${totalCities} 个城市边界`);
+
+                            // 所有城市加载完成后调整视野
+                            if (loadedCount === totalCities) {
+                                if (focusTargets.length > 0) {
+                                    map.setFitView(focusTargets, false, [20, 20, 20, 20]);
+                                }
+                                updateStatus(`✅ 加载完成，共 ${focusTargets.length/2} 个基地`);
+                            }
+                        })
+                        .catch(err => {
+                            console.error(`❌ 加载 ${city.name} 失败：`, err);
+                            loadedCount++;
+                            updateStatus(`⚠️ ${city.name} 加载失败 (${loadedCount}/${totalCities})`);
+                            if (loadedCount === totalCities) {
+                                if (focusTargets.length > 0) {
+                                    map.setFitView(focusTargets, false, [20, 20, 20, 20]);
+                                }
+                                updateStatus(`✅ 部分城市加载完成，共 ${focusTargets.length/2} 个基地`);
+                            }
+                        });
+
+                    // 添加该城市的基地标记和半径圆
+                    const isNear = (name) => {
+                        if (city.focusExclude) {
+                            return !city.focusExclude.includes(name);
+                        }
+                        return true;  // 默认全部聚焦
+                    };
+
+                    city.locations.forEach(loc => {
+                        const marker = new AMap.Marker({
+                            position: [loc.lng, loc.lat],
+                            title: loc.name,
+                            label: {
+                                content: loc.name,
+                                direction: 'top',
+                                offset: new AMap.Pixel(0, 6)
+                            }
+                        });
+                        marker.setMap(map);
+                        marker.on('click', () => {
+                            new AMap.InfoWindow({
+                                content: `<h4>${loc.name}</h4><p>经度：${loc.lng}<br/>纬度：${loc.lat}</p>`,
+                                offset: new AMap.Pixel(0, -30)
+                            }).open(map, [loc.lng, loc.lat]);
+                        });
+
+                        // 半径圆（使用该城市的 radius 设置）
+                        const radius = city.radius || 5000; // 默认 5km
+                        const circle = new AMap.Circle({
+                            center: [loc.lng, loc.lat],
+                            radius: radius,
+                            strokeColor: '#000000',
+                            strokeWeight: 1,
+                            fillColor: 'rgba(0,0,0,0)',
+                            fillOpacity: 0
+                        });
+                        circle.setMap(map);
+
+                        // 聚焦目标：只有近的基地才加入 focusTargets
+                        if (isNear(loc.name)) {
+                            focusTargets.push(marker);
+                            focusTargets.push(circle);
+                        }
+                    });
+                });
+
+                // 添加地图控件
+                map.addControl(new AMap.ToolBar({ position: 'RT' }));
+
+                console.log('🎉 全国地图加载完成！');
+            })
+            .catch(err => {
+                document.getElementById('loading').textContent = `❌ 加载失败：${err.message}`;
+                document.getElementById('loading').style.color = '#e74c3c';
+                console.error('❌', err);
+            });
+    </script>
+</body>
+</html>
