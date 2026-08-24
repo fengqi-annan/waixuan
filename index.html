@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="全国基地分布地图：查看城市、基地、行政区划与 5/10/15 公里覆盖范围。">
+  <meta name="description" content="查看全国基地位置、城市区划与服务范围。">
   <meta name="theme-color" content="#0d2827">
   <title>全国基地分布地图</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>">
@@ -106,7 +106,7 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       overflow: hidden;
       border: 1px solid var(--line);
       border-radius: 20px;
@@ -116,7 +116,6 @@
     .stat + .stat { border-left: 1px solid var(--line); }
     .stat strong { display: block; font-family: Georgia, serif; font-size: 30px; font-weight: 500; color: var(--teal-dark); }
     .stat span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
-    .hero-note { margin: 14px 2px 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 
     .section { padding: 42px 0; }
     .section-head { margin-bottom: 20px; display: flex; align-items: end; justify-content: space-between; gap: 20px; }
@@ -143,10 +142,20 @@
     }
     .live { display: flex; align-items: center; gap: 9px; font-size: 12px; font-weight: 800; letter-spacing: .04em; }
     .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #8bd6a7; box-shadow: 0 0 0 5px rgba(139,214,167,.12); }
-    .map-actions { display: flex; align-items: center; gap: 6px; }
+    .map-actions {
+      display: grid;
+      grid-template-columns: repeat(3, 96px);
+      align-items: center;
+      gap: 6px;
+    }
     .map-action {
+      width: 96px;
       min-height: 34px;
-      padding: 0 12px;
+      padding: 0 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
       border: 1px solid rgba(255,255,255,.15);
       border-radius: 999px;
       color: #fff;
@@ -154,6 +163,8 @@
       font: inherit;
       font-size: 12px;
       font-weight: 750;
+      line-height: 1;
+      white-space: nowrap;
       text-decoration: none;
       cursor: pointer;
     }
@@ -246,6 +257,8 @@
       .section { padding: 30px 0; }
       .map-shell { border-radius: 18px; }
       .map-toolbar { padding-left: 14px; }
+      .map-actions { grid-template-columns: repeat(3, 38px); }
+      .map-action { width: 38px; padding: 0; }
       .map-action span { display: none; }
       .map-viewport { height: 76svh; min-height: 540px; }
       .panel { padding: 21px; border-radius: 18px; }
@@ -266,7 +279,7 @@
 <body>
   <header class="topbar">
     <nav class="nav wrap" aria-label="页面导航">
-      <a class="brand" href="#top"><span class="brand-mark">⌖</span><span>全国基地分布地图</span></a>
+      <a class="brand" href="#top"><span class="brand-mark">⌖</span><span>BASE ATLAS</span></a>
       <div class="nav-links">
         <a href="#map">地图</a>
         <a href="#tools">维护</a>
@@ -278,11 +291,11 @@
   <main id="top">
     <section class="hero wrap">
       <div>
-        <p class="eyebrow">BASE NETWORK / 2026</p>
+        <p class="eyebrow">INTERACTIVE MAP / 2026</p>
         <h1>全国基地，<br>一张图看清。</h1>
-        <p class="lead">把分散在各个城市的基地、行政区划和服务范围收进同一个地图窗口。无需在多个页面之间来回跳转，搜索、收藏、定位和范围比较都可以在这里完成。</p>
+        <p class="lead">查看全国基地位置、城市区划与服务范围，支持搜索和快速定位。</p>
         <div class="hero-actions">
-          <a class="button primary" href="#map">进入交互地图 <span aria-hidden="true">↓</span></a>
+          <a class="button primary" href="#map">开始查看 <span aria-hidden="true">↓</span></a>
           <a class="button" href="qgcm.html" target="_blank" rel="noopener">单独打开地图 ↗</a>
         </div>
       </div>
@@ -290,20 +303,18 @@
         <div class="stats">
           <div class="stat"><strong>16</strong><span>覆盖城市</span></div>
           <div class="stat"><strong>32</strong><span>基地点位</span></div>
-          <div class="stat"><strong>3</strong><span>范围图层</span></div>
         </div>
-        <p class="hero-note">范围图层支持 5 / 10 / 15 公里独立开关；基地与城市数据以后可继续扩展。</p>
       </aside>
     </section>
 
     <section class="section wrap" id="map">
       <div class="section-head">
-        <div><p class="section-kicker">LIVE MAP</p><h2>直接在主页探索</h2></div>
-        <p class="section-copy">下面不是静态截图，而是完整的地图页面。可以搜索城市或基地、切换区划边界、调整覆盖半径，也可以收藏常用城市。</p>
+        <div><p class="section-kicker">LIVE MAP</p><h2>地图就在这里</h2></div>
+        <p class="section-copy">可直接操作地图；需要更大视野时，可切换全屏或在新窗口打开。</p>
       </div>
       <div class="map-shell" id="mapShell">
         <div class="map-toolbar">
-          <div class="live"><i class="live-dot" aria-hidden="true"></i><span>全国基地地图 · 在线预览</span></div>
+          <div class="live"><i class="live-dot" aria-hidden="true"></i><span>地图已就绪</span></div>
           <div class="map-actions">
             <button class="map-action" type="button" id="reloadMap" title="重新载入地图">↻ <span>刷新</span></button>
             <button class="map-action" type="button" id="fullMap" title="全屏查看地图">⛶ <span>全屏</span></button>
@@ -321,9 +332,9 @@
         <article class="panel">
           <h3>使用地图</h3>
           <div class="steps">
-            <div class="step"><b>01</b><div><strong>按城市浏览</strong><p>选择城市会自动容纳该城市全部基地及 15 公里参考范围。</p></div></div>
-            <div class="step"><b>02</b><div><strong>按基地定位</strong><p>选择具体基地会直接进入街区级视野，并打开点位详情。</p></div></div>
-            <div class="step"><b>03</b><div><strong>叠加比较</strong><p>按需开启区划、5 / 10 / 15 公里范围，辅助判断服务覆盖。</p></div></div>
+            <div class="step"><b>01</b><div><strong>查看城市</strong><p>选择城市，查看当地基地分布。</p></div></div>
+            <div class="step"><b>02</b><div><strong>定位基地</strong><p>选择具体基地，快速进入点位并查看详情。</p></div></div>
+            <div class="step"><b>03</b><div><strong>调整显示</strong><p>按需控制区划与距离参考圈。</p></div></div>
           </div>
         </article>
         <article class="panel">
