@@ -41,7 +41,7 @@
       transition: transform .24s ease, opacity .2s ease;
     }
     .sidebar.is-collapsed { opacity: 0; pointer-events: none; transform: translateX(calc(-100% - 30px)); }
-    .brand { padding: 24px 24px 18px; border-bottom: 1px solid var(--line); }
+    .brand { flex: 0 0 auto; padding: 24px 24px 18px; border-bottom: 1px solid var(--line); }
     .eyebrow {
       margin: 0 0 8px;
       color: var(--teal);
@@ -57,7 +57,7 @@
     button.stat:hover, button.stat.active { border-color: rgba(8,127,119,.38); background: rgba(8,127,119,.09); }
     .stat strong { display: block; color: var(--ink); font-family: Georgia, serif; font-size: 22px; line-height: 1; }
     .stat span { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
-    .tools { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+    .tools { flex: 0 0 auto; padding: 14px 18px; border-bottom: 1px solid var(--line); }
     .search-wrap { position: relative; }
     .search-wrap svg { position: absolute; left: 12px; top: 50%; width: 16px; transform: translateY(-50%); color: #718083; }
     #search {
@@ -86,7 +86,16 @@
     .toggle { flex: 1; padding: 7px 8px; font-size: 11px; }
     .radius-toggle { min-width: 0; padding-inline: 4px; }
     .toggle.active { border-color: rgba(8,127,119,.3); color: var(--teal); background: rgba(8,127,119,.08); }
-    .city-list { flex: 1; overflow: auto; padding: 10px; scrollbar-width: thin; }
+    .city-list {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      padding: 10px;
+      scrollbar-width: thin;
+    }
     .city-card {
       width: 100%;
       display: grid;
@@ -130,7 +139,7 @@
     .list-mode { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px 9px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .06em; }
     .list-mode button { border: 0; background: transparent; color: var(--teal); font-size: 10px; font-weight: 800; cursor: pointer; }
     .count { min-width: 28px; padding: 4px 7px; text-align: center; border-radius: 999px; background: #edf2f0; color: var(--muted); font-size: 10px; font-weight: 800; }
-    .footer { display: grid; grid-template-columns: 88px minmax(0, 1fr) 88px; align-items: center; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); }
+    .footer { flex: 0 0 auto; display: grid; grid-template-columns: 88px minmax(0, 1fr) 88px; align-items: center; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); background: var(--paper); }
     .status { display: flex; align-items: center; justify-content: center; min-width: 0; color: var(--muted); font-size: 10px; }
     .status-dot { flex: 0 0 auto; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #d59b31; box-shadow: 0 0 0 4px rgba(213,155,49,.12); }
     .status-dot.ready { background: #15866f; box-shadow: 0 0 0 4px rgba(21,134,111,.12); }
@@ -246,8 +255,15 @@
         right: max(10px, env(safe-area-inset-right));
         bottom: max(10px, env(safe-area-inset-bottom));
         width: auto;
-        height: 43vh;
+        height: 62vh;
+        height: clamp(430px, 62dvh, 620px);
+        max-height: calc(100vh - 20px);
+        max-height: calc(100dvh - 20px);
         border-radius: 18px;
+      }
+      .sidebar.search-active {
+        height: calc(100vh - 20px);
+        height: calc(100dvh - 20px);
       }
       .sidebar.is-collapsed { transform: translateY(calc(100% + 24px)); }
       .brand { padding: 16px 17px 12px; }
@@ -258,9 +274,12 @@
       .stat strong { font-size: 17px; }
       .stat span { display: none; }
       .tools { padding: 10px 12px; }
-      .city-list { padding: 6px 9px; }
+      .city-list { min-height: 86px; padding: 6px 9px; }
       .city-card { padding: 9px; }
-      .footer { padding: 9px 12px; }
+      .footer { grid-template-columns: 1fr 1fr; padding: 9px 12px; }
+      .footer .status { display: none; }
+      .footer .interface-toggle,
+      .footer .reset-btn { width: 100%; max-width: none; }
       .legend {
         top: max(10px, env(safe-area-inset-top));
         left: max(10px, env(safe-area-inset-left));
@@ -841,8 +860,19 @@
       document.getElementById('statusText').textContent = '高德地图加载失败';
     });
 
-    document.getElementById('search').addEventListener('input', event => renderCityList(event.target.value));
-    document.getElementById('search').addEventListener('keydown', event => {
+    const mobileSearchInput = document.getElementById('search');
+    const mobileControlPanel = document.getElementById('controlPanel');
+    function syncMobileSearchPanel() {
+      const shouldExpand = document.activeElement === mobileSearchInput || mobileSearchInput.value.trim().length > 0;
+      mobileControlPanel.classList.toggle('search-active', shouldExpand);
+    }
+    mobileSearchInput.addEventListener('input', event => {
+      renderCityList(event.target.value);
+      syncMobileSearchPanel();
+    });
+    mobileSearchInput.addEventListener('focus', syncMobileSearchPanel);
+    mobileSearchInput.addEventListener('blur', () => setTimeout(syncMobileSearchPanel, 180));
+    mobileSearchInput.addEventListener('keydown', event => {
       if (event.key !== 'Enter') return;
       event.preventDefault();
       activateSearchResult();
