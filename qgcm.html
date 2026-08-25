@@ -804,7 +804,7 @@
         <div class="info">
           <div class="city">所属城市 · ${city.name}</div>
           <h3>${base.name}</h3>
-          <p>所在区县/片区：${base.area}<br>经度：${base.lng}<br>纬度：${base.lat}<br>详细地址：${base.address || '待定'}${base.note ? `<br><strong style="color:#d6543d">状态：${base.note}</strong>` : ''}</p>
+          <p>所在区县/片区：${base.area}<br>经度：${base.lng}<br>纬度：${base.lat}<br>详细地址：${base.address || '文本输入中……'}${base.note ? `<br><strong style="color:#d6543d">状态：${base.note}</strong>` : ''}</p>
         </div>
       `);
       infoWindow.open(map, marker.getPosition());
