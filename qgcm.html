@@ -272,14 +272,14 @@
     .loading strong { display: block; font-family: Georgia, "Songti SC", serif; font-size: 17px; }
     .loading span { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
     .hidden { display: none !important; }
-    @media (min-width: 701px) {
-      .amap-scalecontrol {
-        top: 26px !important;
-        right: 92px !important;
-        bottom: auto !important;
-        left: auto !important;
-        margin: 0 !important;
-      }
+    .amap-scalecontrol { display: none !important; }
+    body.interface-collapsed .amap-scalecontrol {
+      display: block !important;
+      top: auto !important;
+      right: max(18px, calc(env(safe-area-inset-right) + 14px)) !important;
+      bottom: max(42px, calc(env(safe-area-inset-bottom) + 32px)) !important;
+      left: auto !important;
+      margin: 0 !important;
     }
     @media (max-width: 700px) {
       .sidebar {
@@ -1020,6 +1020,7 @@
       const legend = document.getElementById('mapLegend');
       const collapseButton = document.getElementById('panelCollapse');
       const restoreButton = document.getElementById('panelRestore');
+      document.body.classList.toggle('interface-collapsed', collapsed);
       [panel, legend].forEach(target => {
         target.classList.toggle('is-collapsed', collapsed);
         target.setAttribute('aria-hidden', collapsed ? 'true' : 'false');
