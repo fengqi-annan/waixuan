@@ -53,11 +53,12 @@
     h1 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 28px; line-height: 1.15; letter-spacing: -.02em; }
     .subtitle { margin: 9px 0 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
     .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 18px; }
-    .stat { padding: 11px 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.76); text-align: left; }
+    .stat { position: relative; padding: 11px 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.76); text-align: left; }
     button.stat, a.stat { width: 100%; color: inherit; cursor: pointer; text-decoration: none; transition: .18s ease; }
     button.stat:hover, button.stat.active, a.stat:hover { border-color: rgba(8,127,119,.38); background: rgba(8,127,119,.09); }
     .stat strong { display: block; color: var(--ink); font-family: Georgia, serif; font-size: 22px; line-height: 1; }
     .stat span { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
+    .stat-link-icon { position: absolute; top: 7px; right: 7px; width: 11px; height: 11px; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     .tools { flex: 0 0 auto; padding: 14px 18px; border-bottom: 1px solid var(--line); }
     .search-wrap { position: relative; }
     .search-wrap svg { position: absolute; left: 12px; top: 50%; width: 16px; transform: translateY(-50%); color: #718083; }
@@ -144,6 +145,7 @@
     .base-names { display: block; margin-top: 3px; overflow: hidden; color: var(--muted); font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
     .list-mode { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px 9px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .06em; }
     .list-mode button { border: 0; background: transparent; color: var(--teal); font-size: 10px; font-weight: 800; cursor: pointer; }
+    .list-mode-actions { display: flex; align-items: center; gap: 8px; }
     .count { min-width: 28px; padding: 4px 7px; text-align: center; border-radius: 999px; background: #edf2f0; color: var(--muted); font-size: 10px; font-weight: 800; }
     .footer { flex: 0 0 auto; display: grid; grid-template-columns: repeat(3, 88px); align-items: center; justify-content: space-between; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); background: var(--paper); }
     .status { display: flex; align-items: center; justify-content: center; min-width: 0; color: var(--muted); font-size: 10px; }
@@ -270,6 +272,15 @@
     .loading strong { display: block; font-family: Georgia, "Songti SC", serif; font-size: 17px; }
     .loading span { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
     .hidden { display: none !important; }
+    @media (min-width: 701px) {
+      .amap-scalecontrol {
+        top: 26px !important;
+        right: 92px !important;
+        bottom: auto !important;
+        left: auto !important;
+        margin: 0 !important;
+      }
+    }
     @media (max-width: 700px) {
       .sidebar {
         top: auto;
@@ -291,10 +302,11 @@
       .brand { padding: 16px 17px 12px; }
       h1 { font-size: 22px; }
       .subtitle { display: none; }
-      .stats { position: absolute; top: 13px; right: 14px; margin: 0; }
-      .stat { padding: 8px 6px; }
-      .stat strong { font-size: 17px; }
+      .stats { position: absolute; top: 13px; right: 14px; gap: 4px; margin: 0; }
+      .stat { min-width: 34px; padding: 6px 3px; border-radius: 9px; text-align: center; }
+      .stat strong { font-size: 15px; }
       .stat span { display: none; }
+      .stat-link-icon { display: none; }
       .tools { padding: 10px 12px; }
       .city-list { min-height: 86px; padding: 6px 9px; }
       .city-card { padding: 9px; }
@@ -337,7 +349,7 @@
         <button class="stat" id="cityOverview" type="button"><strong id="cityTotal">16</strong><span>覆盖城市</span></button>
         <button class="stat" id="favoriteView" type="button" aria-pressed="false"><strong id="favoriteTotal">0</strong><span>收藏城市</span></button>
         <button class="stat" id="hiddenView" type="button" aria-pressed="false"><strong id="hiddenTotal">0</strong><span>隐藏基地</span></button>
-        <a class="stat" id="baseDirectory" href="https://my.feishu.cn/share/base/view/shrcndD2GzgSL4MV61fIPztuDYb" target="_blank" rel="noopener"><strong id="baseTotal">32</strong><span>基地总数</span></a>
+        <a class="stat" id="baseDirectory" href="https://my.feishu.cn/share/base/view/shrcndD2GzgSL4MV61fIPztuDYb" target="_blank" rel="noopener" title="在新窗口打开基地数据表"><svg class="stat-link-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3h7v7"/><path d="m13 3-8 8"/><path d="M11 9v4H3V5h4"/></svg><strong id="baseTotal">32</strong><span>基地总数</span></a>
       </div>
     </header>
 
@@ -577,6 +589,21 @@
       renderCityList(document.getElementById('search').value);
     }
 
+    function restoreAllHiddenBases() {
+      if (hiddenBases.size === 0) return;
+      hiddenBases.clear();
+      try { localStorage.setItem(HIDDEN_BASES_KEY, '[]'); } catch (_) {}
+      baseLayerMap.forEach(layers => {
+        layers.marker.show();
+        layers.circles.forEach(({ radius, circle }) => radiusVisibility.get(radius) ? circle.show() : circle.hide());
+      });
+      hiddenOnly = false;
+      updateHiddenSummary();
+      refreshBoundaryVisibility();
+      syncMarkerDensity();
+      renderCityList();
+    }
+
     if (AMAP_SECURITY) window._AMapSecurityConfig = { securityJsCode: AMAP_SECURITY };
 
     function loadAMap() {
@@ -612,7 +639,7 @@
         };
       }).filter(Boolean);
       const modeHeader = hiddenOnly
-        ? '<div class="list-mode"><span>隐藏基地 · 可在此恢复</span><button type="button" id="showAllCities">查看全部</button></div>'
+        ? '<div class="list-mode"><span>隐藏基地 · 可在此恢复</span><span class="list-mode-actions"><button type="button" id="restoreAllBases">全部恢复</button><button type="button" id="showAllCities">查看全部</button></span></div>'
         : favoritesOnly ? '<div class="list-mode"><span>收藏城市 · 收入由高到低</span><button type="button" id="showAllCities">查看全部</button></div>' : '';
       const emptyText = hiddenOnly
         ? '暂无隐藏基地'
@@ -638,6 +665,7 @@
         updateHiddenSummary();
         renderCityList(document.getElementById('search').value);
       });
+      document.getElementById('restoreAllBases')?.addEventListener('click', restoreAllHiddenBases);
       list.querySelectorAll('[data-favorite]').forEach(star => {
         const save = event => {
           event.preventDefault();
