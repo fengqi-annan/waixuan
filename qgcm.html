@@ -52,10 +52,10 @@
     }
     h1 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 28px; line-height: 1.15; letter-spacing: -.02em; }
     .subtitle { margin: 9px 0 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
-    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 18px; }
     .stat { padding: 11px 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.76); text-align: left; }
-    button.stat { width: 100%; color: inherit; cursor: pointer; transition: .18s ease; }
-    button.stat:hover, button.stat.active { border-color: rgba(8,127,119,.38); background: rgba(8,127,119,.09); }
+    button.stat, a.stat { width: 100%; color: inherit; cursor: pointer; text-decoration: none; transition: .18s ease; }
+    button.stat:hover, button.stat.active, a.stat:hover { border-color: rgba(8,127,119,.38); background: rgba(8,127,119,.09); }
     .stat strong { display: block; color: var(--ink); font-family: Georgia, serif; font-size: 22px; line-height: 1; }
     .stat span { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
     .tools { flex: 0 0 auto; padding: 14px 18px; border-bottom: 1px solid var(--line); }
@@ -131,6 +131,11 @@
     }
     .favorite-star:hover { color: #d59b31; background: rgba(213,155,49,.1); }
     .favorite-star.saved { color: #d59b31; }
+    .visibility-toggle { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: var(--teal); transition: .16s ease; }
+    .visibility-toggle:hover { background: rgba(8,127,119,.1); }
+    .visibility-toggle.hidden-base { color: #879497; }
+    .visibility-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+    .base-result.is-hidden { opacity: .68; }
     .city-card.base-result { width: calc(100% - 14px); margin-left: 14px; background: rgba(255,255,255,.42); }
     .city-card.base-result .city-dot { width: 7px; height: 7px; }
     .city-card.base-result .city-name { font-size: 13px; }
@@ -287,7 +292,7 @@
       h1 { font-size: 22px; }
       .subtitle { display: none; }
       .stats { position: absolute; top: 13px; right: 14px; margin: 0; }
-      .stat { padding: 8px; }
+      .stat { padding: 8px 6px; }
       .stat strong { font-size: 17px; }
       .stat span { display: none; }
       .tools { padding: 10px 12px; }
@@ -329,9 +334,10 @@
       <h1>全国基地分布图</h1>
       <p class="subtitle">一张地图汇总城市区划、基地坐标与服务半径。点击城市即可快速聚焦。</p>
       <div class="stats">
-        <div class="stat"><strong id="cityTotal">16</strong><span>覆盖城市</span></div>
+        <button class="stat" id="cityOverview" type="button"><strong id="cityTotal">16</strong><span>覆盖城市</span></button>
         <button class="stat" id="favoriteView" type="button" aria-pressed="false"><strong id="favoriteTotal">0</strong><span>收藏城市</span></button>
-        <div class="stat"><strong id="baseTotal">32</strong><span>基地总数</span></div>
+        <button class="stat" id="hiddenView" type="button" aria-pressed="false"><strong id="hiddenTotal">0</strong><span>隐藏基地</span></button>
+        <a class="stat" id="baseDirectory" href="https://my.feishu.cn/share/base/view/shrcndD2GzgSL4MV61fIPztuDYb" target="_blank" rel="noopener"><strong id="baseTotal">32</strong><span>基地总数</span></a>
       </div>
     </header>
 
@@ -458,6 +464,7 @@
     let baseFocusRequestId = 0;
     let boundariesVisible = false;
     let favoritesOnly = false;
+    let hiddenOnly = false;
     const markers = [];
     const circles = [];
     const radiusLayers = new Map(COVERAGE_RANGES.map(radius => [radius, []]));
@@ -466,12 +473,22 @@
     const boundaryLayers = [];
     const cityBoundaryLayers = new Map();
     const markerEntries = [];
-    const citySummaryMarkers = [];
+    const citySummaryEntries = [];
     const cityMarkerMap = new Map();
+    const baseLayerMap = new Map();
     const FAVORITES_KEY = 'national-base-map-favorites';
+    const HIDDEN_BASES_KEY = 'national-base-map-hidden-bases';
     const favoriteCities = new Set((() => {
       try {
         const saved = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
+        return Array.isArray(saved) ? saved : [];
+      } catch (_) {
+        return [];
+      }
+    })());
+    const hiddenBases = new Set((() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem(HIDDEN_BASES_KEY) || '[]');
         return Array.isArray(saved) ? saved : [];
       } catch (_) {
         return [];
@@ -489,6 +506,20 @@
     document.getElementById('cityTotal').textContent = cities.length;
     document.getElementById('baseTotal').textContent = cities.reduce((sum, city) => sum + city.bases.length, 0);
 
+    function baseStorageKey(cityName, baseName) {
+      return `${cityName}::${baseName}`;
+    }
+
+    function isBaseHidden(cityName, base) {
+      return hiddenBases.has(baseStorageKey(cityName, base.name));
+    }
+
+    function visibleBaseEntries(city) {
+      return city.bases
+        .map((base, index) => ({ base, index }))
+        .filter(({ base }) => !isBaseHidden(city.name, base));
+    }
+
     function updateFavoriteSummary() {
       document.getElementById('favoriteTotal').textContent = favoriteCities.size;
       const button = document.getElementById('favoriteView');
@@ -496,11 +527,53 @@
       button.setAttribute('aria-pressed', String(favoritesOnly));
     }
 
+    function updateHiddenSummary() {
+      document.getElementById('hiddenTotal').textContent = hiddenBases.size;
+      const button = document.getElementById('hiddenView');
+      button.classList.toggle('active', hiddenOnly);
+      button.setAttribute('aria-pressed', String(hiddenOnly));
+    }
+
     function toggleFavorite(cityName) {
       if (favoriteCities.has(cityName)) favoriteCities.delete(cityName);
       else favoriteCities.add(cityName);
       try { localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favoriteCities])); } catch (_) {}
       updateFavoriteSummary();
+      renderCityList(document.getElementById('search').value);
+    }
+
+    function visibilityIcon(hidden) {
+      return hidden
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18"/><path d="M10.6 10.7a2 2 0 0 0 2.7 2.7"/><path d="M9.9 4.3A10.8 10.8 0 0 1 12 4c6 0 10 8 10 8a18 18 0 0 1-2.1 3.1"/><path d="M6.6 6.7C3.8 8.6 2 12 2 12s4 8 10 8a9.8 9.8 0 0 0 4.1-.9"/></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+    }
+
+    function toggleBaseVisibility(cityName, baseIndex) {
+      const city = cities.find(item => item.name === cityName);
+      const base = city?.bases[baseIndex];
+      if (!city || !base) return;
+      const storageKey = baseStorageKey(cityName, base.name);
+      const hidden = !hiddenBases.has(storageKey);
+      if (hidden) hiddenBases.add(storageKey);
+      else hiddenBases.delete(storageKey);
+      try { localStorage.setItem(HIDDEN_BASES_KEY, JSON.stringify([...hiddenBases])); } catch (_) {}
+
+      const layers = baseLayerMap.get(storageKey);
+      if (layers) {
+        hidden ? layers.marker.hide() : layers.marker.show();
+        layers.circles.forEach(({ radius, circle }) => {
+          if (hidden || !radiusVisibility.get(radius)) circle.hide();
+          else circle.show();
+        });
+      }
+      if (hidden && selectedBaseKey === `${cityName}:${baseIndex}`) {
+        baseFocusRequestId += 1;
+        infoWindow?.close();
+        selectedBaseKey = '';
+      }
+      updateHiddenSummary();
+      refreshBoundaryVisibility();
+      syncMarkerDensity();
       renderCityList(document.getElementById('search').value);
     }
 
@@ -521,37 +594,48 @@
       const normalized = query.trim().toLowerCase();
       const list = document.getElementById('cityList');
       const orderedCities = [...cities].sort((a, b) => b.disposableIncome - a.disposableIncome);
-      const sourceCities = favoritesOnly ? orderedCities.filter(city => favoriteCities.has(city.name)) : orderedCities;
+      const sourceCities = hiddenOnly
+        ? orderedCities.filter(city => city.bases.some(base => isBaseHidden(city.name, base)))
+        : favoritesOnly ? orderedCities.filter(city => favoriteCities.has(city.name)) : orderedCities;
       const groups = sourceCities.map(city => {
         const cityMatches = city.name.toLowerCase().includes(normalized);
         const matchedBases = city.bases
           .map((base, index) => ({ base, index }))
           .filter(({ base }) => base.name.toLowerCase().includes(normalized) || base.area.toLowerCase().includes(normalized));
         if (normalized && !cityMatches && matchedBases.length === 0) return null;
+        const allBases = city.bases.map((base, index) => ({ base, index }));
         return {
           city,
-          bases: normalized ? (cityMatches ? city.bases.map((base, index) => ({ base, index })) : matchedBases) : []
+          bases: hiddenOnly
+            ? allBases.filter(({ base }) => isBaseHidden(city.name, base))
+            : normalized ? (cityMatches ? allBases : matchedBases) : selectedCity === city.name ? allBases : []
         };
       }).filter(Boolean);
-      const modeHeader = favoritesOnly ? '<div class="list-mode"><span>收藏城市 · 收入由高到低</span><button type="button" id="showAllCities">查看全部</button></div>' : '';
-      const emptyText = favoritesOnly && favoriteCities.size === 0 ? '暂无收藏城市，点击城市右侧星标即可收藏' : '没有匹配的城市或基地';
+      const modeHeader = hiddenOnly
+        ? '<div class="list-mode"><span>隐藏基地 · 可在此恢复</span><button type="button" id="showAllCities">查看全部</button></div>'
+        : favoritesOnly ? '<div class="list-mode"><span>收藏城市 · 收入由高到低</span><button type="button" id="showAllCities">查看全部</button></div>' : '';
+      const emptyText = hiddenOnly
+        ? '暂无隐藏基地'
+        : favoritesOnly && favoriteCities.size === 0 ? '暂无收藏城市，点击城市右侧星标即可收藏' : '没有匹配的城市或基地';
       list.innerHTML = modeHeader + (groups.map(({ city, bases }) => `
         <button class="city-card ${selectedCity === city.name && !selectedBaseKey ? 'active' : ''}" type="button" data-role="city" data-city="${city.name}">
           <span class="city-dot" style="background:${city.color};color:${city.color}"></span>
-          <span class="card-copy"><span class="city-name">${city.name}</span><span class="base-names">${city.bases.map(base => base.name + (!base.name.includes(base.area) ? `（${base.area}）` : '') + (base.note ? ` · ${base.note}` : '')).join(' · ')}</span></span>
+          <span class="card-copy"><span class="city-name">${city.name}</span><span class="base-names">${city.bases.map(base => base.name + (!base.name.includes(base.area) ? `（${base.area}）` : '') + (isBaseHidden(city.name, base) ? ' · 已隐藏' : '') + (base.note ? ` · ${base.note}` : '')).join(' · ')}</span></span>
           <span class="card-meta"><span class="favorite-star ${favoriteCities.has(city.name) ? 'saved' : ''}" role="button" tabindex="0" data-favorite="${city.name}" aria-label="${favoriteCities.has(city.name) ? '取消收藏' : '收藏'}${city.name}" title="${favoriteCities.has(city.name) ? '取消收藏' : '收藏城市'}">${favoriteCities.has(city.name) ? '★' : '☆'}</span><span class="count">${city.bases.length}</span></span>
         </button>
         ${bases.map(({ base, index }) => `
-          <button class="city-card base-result ${selectedBaseKey === `${city.name}:${index}` ? 'active' : ''}" type="button" data-role="base" data-city="${city.name}" data-base-index="${index}">
+          <button class="city-card base-result ${selectedBaseKey === `${city.name}:${index}` ? 'active' : ''} ${isBaseHidden(city.name, base) ? 'is-hidden' : ''}" type="button" data-role="base" data-city="${city.name}" data-base-index="${index}">
             <span class="city-dot" style="background:${city.color};color:${city.color}"></span>
             <span class="card-copy"><span class="city-name">${base.name}</span><span class="base-names">${city.name} · ${base.area}${base.note ? ` · ${base.note}` : ''}</span></span>
-            <span class="count">基地</span>
+            <span class="card-meta"><span class="visibility-toggle ${isBaseHidden(city.name, base) ? 'hidden-base' : ''}" role="button" tabindex="0" data-visibility-city="${city.name}" data-visibility-index="${index}" aria-label="${isBaseHidden(city.name, base) ? '恢复显示' : '隐藏'}${base.name}" title="${isBaseHidden(city.name, base) ? '恢复显示' : '隐藏基地'}">${visibilityIcon(isBaseHidden(city.name, base))}</span><span class="count">基地</span></span>
           </button>
         `).join('')}
       `).join('') || `<p style="padding:18px;color:#65777a;font-size:12px;text-align:center">${emptyText}</p>`);
       document.getElementById('showAllCities')?.addEventListener('click', () => {
         favoritesOnly = false;
+        hiddenOnly = false;
         updateFavoriteSummary();
+        updateHiddenSummary();
         renderCityList(document.getElementById('search').value);
       });
       list.querySelectorAll('[data-favorite]').forEach(star => {
@@ -563,6 +647,17 @@
         star.addEventListener('click', save);
         star.addEventListener('keydown', event => {
           if (event.key === 'Enter' || event.key === ' ') save(event);
+        });
+      });
+      list.querySelectorAll('[data-visibility-city]').forEach(toggle => {
+        const change = event => {
+          event.preventDefault();
+          event.stopPropagation();
+          toggleBaseVisibility(toggle.dataset.visibilityCity, Number(toggle.dataset.visibilityIndex));
+        };
+        toggle.addEventListener('click', change);
+        toggle.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') change(event);
         });
       });
       list.querySelectorAll('[data-role="city"]').forEach(button => {
@@ -589,23 +684,28 @@
     function focusCity(name) {
       const city = cities.find(item => item.name === name);
       if (!city || !map) return;
+      const visibleEntries = visibleBaseEntries(city);
+      if (visibleEntries.length === 0) return;
       baseFocusRequestId += 1;
       selectedCity = name;
       selectedBaseKey = '';
       renderCityList(document.getElementById('search').value);
       infoWindow?.close();
-      const coverage = cityRadiusLayers.get(name)?.get(15000) || [];
+      const coverage = visibleEntries.flatMap(({ base }) => baseLayerMap.get(baseStorageKey(name, base.name))?.circles
+        .filter(({ radius }) => radius === 15000)
+        .map(({ circle }) => circle) || []);
+      const visibleMarkers = visibleEntries.map(({ index }) => cityMarkerMap.get(name)?.[index]).filter(Boolean);
       const padding = window.innerWidth > 700
         ? [64, 64, 64, 372]
         : [64, 54, Math.round(window.innerHeight * .46), 54];
-      map.setFitView(coverage.length ? coverage : cityMarkerMap.get(name), false, padding, 13);
+      map.setFitView(coverage.length ? coverage : visibleMarkers, false, padding, 13);
     }
 
     function focusBase(cityName, baseIndex) {
       const city = cities.find(item => item.name === cityName);
       const base = city?.bases[baseIndex];
       const marker = cityMarkerMap.get(cityName)?.[baseIndex];
-      if (!city || !base || !marker || !map) return;
+      if (!city || !base || !marker || !map || isBaseHidden(cityName, base)) return;
       const requestId = ++baseFocusRequestId;
       const target = [base.lng, base.lat];
       selectedCity = cityName;
@@ -636,9 +736,16 @@
       infoWindow?.close();
       selectedCity = '';
       selectedBaseKey = '';
+      favoritesOnly = false;
+      hiddenOnly = false;
+      document.getElementById('search').value = '';
       setBoundariesVisible(false);
-      renderCityList(document.getElementById('search').value);
-      map.setFitView(markers, false, [70, 70, 70, window.innerWidth > 700 ? 380 : 70], 7);
+      updateFavoriteSummary();
+      updateHiddenSummary();
+      renderCityList();
+      const visibleMarkers = markerEntries.filter(({ storageKey }) => !hiddenBases.has(storageKey)).map(({ marker }) => marker);
+      if (visibleMarkers.length) map.setFitView(visibleMarkers, false, [70, 70, 70, window.innerWidth > 700 ? 380 : 70], 7);
+      else map.setZoomAndCenter(5, [112.8, 33.2], true);
     }
 
     function openBaseInfo(city, base, marker) {
@@ -666,21 +773,24 @@
         });
         summaryMarker.on('click', () => focusCity(city.name));
         summaryMarker.setMap(map);
-        citySummaryMarkers.push(summaryMarker);
+        citySummaryEntries.push({ marker: summaryMarker, city });
 
         city.bases.forEach((base, baseIndex) => {
+          const storageKey = baseStorageKey(city.name, base.name);
+          const selectedKey = `${city.name}:${baseIndex}`;
+          const baseCircles = [];
           const marker = new AMap.Marker({
             position: [base.lng, base.lat],
             title: `${city.name} · ${base.name}`,
             content: `<div class="map-pin" style="--pin:${city.color}"></div>`,
             offset: new AMap.Pixel(-9, -18),
             label: { content: base.name, direction: 'top', offset: new AMap.Pixel(0, -5) },
-            zIndex: 120
+            zIndex: base.name === '余杭基地' ? 150 : 120
           });
           marker.on('click', () => focusBase(city.name, baseIndex));
           marker.setMap(map);
           markers.push(marker);
-          markerEntries.push({ marker, base, key: `${city.name}:${baseIndex}` });
+          markerEntries.push({ marker, base, key: selectedKey, storageKey, cityName: city.name });
           localMarkers.push(marker);
 
           COVERAGE_RANGES.forEach((radius, index) => {
@@ -703,9 +813,15 @@
             circle.setMap(map);
             if (!radiusVisibility.get(radius)) circle.hide();
             circles.push(circle);
+            baseCircles.push({ radius, circle });
             radiusLayers.get(radius).push(circle);
             localRadiusLayers.get(radius).push(circle);
           });
+          baseLayerMap.set(storageKey, { marker, circles: baseCircles });
+          if (hiddenBases.has(storageKey)) {
+            marker.hide();
+            baseCircles.forEach(({ circle }) => circle.hide());
+          }
         });
         cityMarkerMap.set(city.name, localMarkers);
         cityRadiusLayers.set(city.name, localRadiusLayers);
@@ -715,10 +831,18 @@
     function syncMarkerDensity() {
       const detailedView = map.getZoom() >= 8;
       const openBaseKey = infoWindow?.getIsOpen() ? selectedBaseKey : '';
-      citySummaryMarkers.forEach(marker => detailedView ? marker.hide() : marker.show());
-      markerEntries.forEach(({ marker, base, key }) => {
+      citySummaryEntries.forEach(({ marker, city }) => {
+        const visibleCount = visibleBaseEntries(city).length;
+        marker.setContent(`<div class="city-summary" style="--city-color:${city.color}"><span>${city.name}</span><b>${visibleCount}</b></div>`);
+        if (detailedView || visibleCount === 0) marker.hide();
+        else marker.show();
+      });
+      markerEntries.forEach(({ marker, base, key, storageKey }) => {
+        const hidden = hiddenBases.has(storageKey);
+        if (hidden) marker.hide();
+        else marker.show();
         marker.setLabel({
-          content: detailedView && key !== openBaseKey ? base.name : '',
+          content: detailedView && !hidden && key !== openBaseKey ? base.name : '',
           direction: 'top',
           offset: new AMap.Pixel(0, -5)
         });
@@ -822,7 +946,7 @@
           }));
           boundaryLayers.push(layer, ...outlineLayers);
           cityBoundaryLayers.set(city.name, { districts: layer, outline: outlineLayers });
-          if (boundariesVisible) map.add([layer, ...outlineLayers]);
+          if (boundariesVisible && visibleBaseEntries(city).length > 0) map.add([layer, ...outlineLayers]);
           return city.name;
         });
     }
@@ -836,17 +960,28 @@
       text.title = failed ? `尚未载入 ${failedCities.join('、')} 的 GeoJSON` : text.textContent;
     }
 
-    function toggleLayers(items, visible) {
-      items.forEach(item => visible ? item.show() : item.hide());
+    function refreshRadiusVisibility(radius) {
+      baseLayerMap.forEach((layers, storageKey) => {
+        layers.circles
+          .filter(item => item.radius === radius)
+          .forEach(({ circle }) => radiusVisibility.get(radius) && !hiddenBases.has(storageKey) ? circle.show() : circle.hide());
+      });
     }
 
-    function toggleBoundaryLayers(visible) {
-      boundaryLayers.forEach(layer => visible ? map.add(layer) : map.remove(layer));
+    function refreshBoundaryVisibility() {
+      if (!map) return;
+      cityBoundaryLayers.forEach(({ districts, outline }, cityName) => {
+        const city = cities.find(item => item.name === cityName);
+        const layers = [districts, ...outline];
+        const visible = boundariesVisible && city && visibleBaseEntries(city).length > 0;
+        if (visible) map.add(layers);
+        else map.remove(layers);
+      });
     }
 
     function setBoundariesVisible(visible) {
       boundariesVisible = visible;
-      if (map) toggleBoundaryLayers(visible);
+      refreshBoundaryVisibility();
       const button = document.getElementById('boundaryToggle');
       button.classList.toggle('active', visible);
       button.textContent = `区划边界 · ${visible ? '开' : '关'}`;
@@ -924,10 +1059,21 @@
       activateSearchResult();
     });
     document.getElementById('resetView').addEventListener('click', resetView);
+    document.getElementById('cityOverview').addEventListener('click', resetView);
     document.getElementById('favoriteView').addEventListener('click', () => {
       favoritesOnly = !favoritesOnly;
+      hiddenOnly = false;
       document.getElementById('search').value = '';
       updateFavoriteSummary();
+      updateHiddenSummary();
+      renderCityList();
+    });
+    document.getElementById('hiddenView').addEventListener('click', () => {
+      hiddenOnly = !hiddenOnly;
+      favoritesOnly = false;
+      document.getElementById('search').value = '';
+      updateFavoriteSummary();
+      updateHiddenSummary();
       renderCityList();
     });
     document.getElementById('boundaryToggle').addEventListener('click', event => {
@@ -938,7 +1084,7 @@
         const radius = Number(event.currentTarget.dataset.radius);
         const visible = !radiusVisibility.get(radius);
         radiusVisibility.set(radius, visible);
-        toggleLayers(radiusLayers.get(radius), visible);
+        refreshRadiusVisibility(radius);
         event.currentTarget.classList.toggle('active', visible);
         event.currentTarget.setAttribute('aria-pressed', String(visible));
       });
@@ -946,6 +1092,7 @@
     document.getElementById('panelCollapse').addEventListener('click', () => setInterfaceCollapsed(true));
     document.getElementById('panelRestore').addEventListener('click', () => setInterfaceCollapsed(false));
     updateFavoriteSummary();
+    updateHiddenSummary();
   </script>
 </body>
 </html>
