@@ -64,7 +64,6 @@
     button.stat:hover, button.stat.active, a.stat:hover { border-color: rgba(8,127,119,.38); background: rgba(8,127,119,.09); }
     .stat strong { display: block; color: var(--ink); font-family: Georgia, serif; font-size: 22px; line-height: 1; }
     .stat span { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
-    .stat-link-icon { position: absolute; top: 7px; right: 7px; width: 11px; height: 11px; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     .tools { flex: 0 0 auto; padding: 14px var(--panel-gutter); border-bottom: 1px solid var(--line); }
     .search-wrap { position: relative; }
     .search-wrap svg { position: absolute; left: 12px; top: 50%; width: 16px; transform: translateY(-50%); color: #718083; }
@@ -138,6 +137,19 @@
     }
     .favorite-star:hover { color: #d59b31; background: rgba(213,155,49,.1); }
     .favorite-star.saved { color: #d59b31; }
+    .city-collapse {
+      width: 26px;
+      height: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      color: var(--teal);
+      font-size: 11px;
+      line-height: 1;
+      transition: .16s ease;
+    }
+    .city-collapse:hover { background: rgba(8,127,119,.1); }
     .visibility-toggle { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: var(--teal); transition: .16s ease; }
     .visibility-toggle:hover { background: rgba(8,127,119,.1); }
     .visibility-toggle.hidden-base { color: #879497; }
@@ -327,7 +339,6 @@
       .stat { min-width: 34px; padding: 6px 3px; border-radius: 9px; text-align: center; }
       .stat strong { font-size: 15px; }
       .stat span { display: none; }
-      .stat-link-icon { display: none; }
       .tools { padding: 10px var(--panel-gutter); }
       .city-list { min-height: 86px; padding: 6px var(--panel-gutter); }
       .city-card { padding: 9px; }
@@ -368,10 +379,10 @@
       <h1>全国基地分布图</h1>
       <p class="subtitle">一张地图汇总城市区划、基地坐标与服务半径。点击城市即可快速聚焦。</p>
       <div class="stats">
-        <button class="stat" id="cityOverview" type="button"><strong id="cityTotal">16</strong><span>覆盖城市</span></button>
+        <button class="stat" id="cityOverview" type="button" title="进入全国视图"><strong id="cityTotal">16</strong><span>覆盖城市</span></button>
         <button class="stat" id="favoriteView" type="button" aria-pressed="false"><strong id="favoriteTotal">0</strong><span>收藏城市</span></button>
         <button class="stat" id="hiddenView" type="button" aria-pressed="false"><strong id="hiddenTotal">0</strong><span>隐藏基地</span></button>
-        <a class="stat" id="baseDirectory" href="https://my.feishu.cn/share/base/view/shrcndD2GzgSL4MV61fIPztuDYb" target="_blank" rel="noopener" title="在新窗口打开基地数据表"><svg class="stat-link-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3h7v7"/><path d="m13 3-8 8"/><path d="M11 9v4H3V5h4"/></svg><strong id="baseTotal">32</strong><span>基地总数</span></a>
+        <a class="stat" id="baseDirectory" href="https://my.feishu.cn/share/base/view/shrcndD2GzgSL4MV61fIPztuDYb" target="_blank" rel="noopener" title="新窗口打开飞书文档"><strong id="baseTotal">32</strong><span>收录基地</span></a>
       </div>
     </header>
 
@@ -429,70 +440,71 @@
     ];
     const EMBEDDED_GEOJSON = JSON.parse(document.getElementById('embeddedGeoJSON').textContent);
 
+    // 基地详细地址填写说明：直接修改对应基地这一行中的 address: '请输入文本'，保留单引号和逗号。
     const cities = [
       { name: '成都', disposableIncome: 53620, center: [104.0665, 30.5723], zoom: 10, geoUrl: './chengdu.geojson', color: '#d97732', bases: [
-        { name: '成都基地', area: '双流', lng: 104.071389, lat: 30.503426 }
+        { name: '成都基地', area: '双流', lng: 104.071389, lat: 30.503426, address: '请输入文本' }
       ]},
       { name: '杭州', disposableIncome: 76777, center: [120.1552, 30.2729], zoom: 10, geoUrl: './hangzhou.geojson', color: '#007f78', bases: [
-        { name: '余杭基地', area: '余杭', lng: 120.030657, lat: 30.242448 },
-        { name: '拱墅基地', area: '拱墅', lng: 120.12167, lat: 30.322637 },
-        { name: '滨江基地', area: '滨江', lng: 120.212561, lat: 30.177514 },
-        { name: '西湖基地', area: '西湖', lng: 120.097021, lat: 30.268681 },
-        { name: '富阳基地', area: '富阳', lng: 119.991809, lat: 30.14373 },
-        { name: '千广・凡星成长社区', area: '余杭', lng: 120.040795, lat: 30.243489 }
+        { name: '余杭基地', area: '余杭', lng: 120.030657, lat: 30.242448, address: '请输入文本' },
+        { name: '拱墅基地', area: '拱墅', lng: 120.12167, lat: 30.322637, address: '请输入文本' },
+        { name: '滨江基地', area: '滨江', lng: 120.212561, lat: 30.177514, address: '请输入文本' },
+        { name: '西湖基地', area: '西湖', lng: 120.097021, lat: 30.268681, address: '请输入文本' },
+        { name: '富阳基地', area: '富阳', lng: 119.991809, lat: 30.14373, address: '请输入文本' },
+        { name: '千广・凡星成长社区', area: '余杭', lng: 120.040795, lat: 30.243489, address: '请输入文本' }
       ]},
       { name: '合肥', disposableIncome: 55832, center: [117.2272, 31.8206], zoom: 10, geoUrl: './hefei.geojson', color: '#9a6939', bases: [
-        { name: '合肥基地', area: '蜀山', lng: 117.209567, lat: 31.83644 }
+        { name: '合肥基地', area: '蜀山', lng: 117.209567, lat: 31.83644, address: '请输入文本' }
       ]},
       { name: '济南', disposableIncome: 54390, center: [117.0244, 36.6615], zoom: 10, geoUrl: './jinan.geojson', color: '#476f9d', bases: [
-        { name: '历城基地', area: '历城', lng: 117.071485, lat: 36.694788 },
-        { name: '天桥基地', area: '天桥', lng: 117.019532, lat: 36.690923 }
+        { name: '历城基地', area: '历城', lng: 117.071485, lat: 36.694788, address: '请输入文本' },
+        { name: '天桥基地', area: '天桥', lng: 117.019532, lat: 36.690923, address: '请输入文本' }
       ]},
       { name: '洛阳', disposableIncome: 35561, center: [112.4539, 34.6197], zoom: 10, geoUrl: './luoyang.geojson', color: '#a54f67', bases: [
-        { name: '涧西基地', area: '涧西', lng: 112.397339, lat: 34.64523 },
-        { name: '上海市场基地', area: '上海市场', lng: 112.418123, lat: 34.643167 },
-        { name: '万达基地', area: '万达', lng: 112.406274, lat: 34.654515 }
+        { name: '涧西基地', area: '涧西', lng: 112.397339, lat: 34.64523, address: '请输入文本' },
+        { name: '上海市场基地', area: '上海市场', lng: 112.418123, lat: 34.643167, address: '请输入文本' },
+        { name: '万达基地', area: '万达', lng: 112.406274, lat: 34.654515, address: '请输入文本' }
       ]},
       { name: '商丘', disposableIncome: 26584, center: [115.6552, 34.4199], zoom: 10, geoUrl: './shangqiu.geojson', color: '#567c4a', bases: [
-        { name: '睢阳基地', area: '睢阳', lng: 115.658608, lat: 34.406909 },
-        { name: '梁园基地', area: '梁园', lng: 115.620602, lat: 34.439969 }
+        { name: '睢阳基地', area: '睢阳', lng: 115.658608, lat: 34.406909, address: '请输入文本' },
+        { name: '梁园基地', area: '梁园', lng: 115.620602, lat: 34.439969, address: '请输入文本' }
       ]},
       { name: '武汉', disposableIncome: 59732, center: [114.2986, 30.5944], zoom: 10, geoUrl: './wuhan.geojson', color: '#7658a5', bases: [
-        { name: '武汉基地', area: '汉阳', lng: 114.256798, lat: 30.531055 }
+        { name: '武汉基地', area: '汉阳', lng: 114.256798, lat: 30.531055, address: '请输入文本' }
       ]},
       { name: '西安', disposableIncome: 45082, center: [108.9398, 34.3416], zoom: 10, geoUrl: './xian.geojson', color: '#bd5c35', bases: [
-        { name: '雁塔基地', area: '雁塔', lng: 108.872867, lat: 34.209048 },
-        { name: '莲湖基地', area: '莲湖', lng: 108.884328, lat: 34.278724 }
+        { name: '雁塔基地', area: '雁塔', lng: 108.872867, lat: 34.209048, address: '请输入文本' },
+        { name: '莲湖基地', area: '莲湖', lng: 108.884328, lat: 34.278724, address: '请输入文本' }
       ]},
       { name: '徐州', disposableIncome: 40251, center: [117.1844, 34.2618], zoom: 9, geoUrl: './xuzhou.geojson', color: '#19809d', bases: [
-        { name: '贾汪基地', area: '贾汪', lng: 117.289725, lat: 34.268725 },
-        { name: '鼓楼基地', area: '鼓楼', lng: 117.179488, lat: 34.273124 },
-        { name: '邳州基地', area: '邳州', lng: 117.950381, lat: 34.331705 },
-        { name: '沛县基地', area: '沛县', lng: 116.921789, lat: 34.731833 }
+        { name: '贾汪基地', area: '贾汪', lng: 117.289725, lat: 34.268725, address: '请输入文本' },
+        { name: '鼓楼基地', area: '鼓楼', lng: 117.179488, lat: 34.273124, address: '请输入文本' },
+        { name: '邳州基地', area: '邳州', lng: 117.950381, lat: 34.331705, address: '请输入文本' },
+        { name: '沛县基地', area: '沛县', lng: 116.921789, lat: 34.731833, address: '请输入文本' }
       ]},
       { name: '郑州', disposableIncome: 45994, center: [113.6607, 34.7497], zoom: 10, geoUrl: './zhengzhou.geojson', color: '#bf8b18', bases: [
-        { name: '管城基地', area: '管城', lng: 113.67570, lat: 34.722479 },
-        { name: '金水基地', area: '金水', lng: 113.695997, lat: 34.775922 }
+        { name: '管城基地', area: '管城', lng: 113.67570, lat: 34.722479, address: '请输入文本' },
+        { name: '金水基地', area: '金水', lng: 113.695997, lat: 34.775922, address: '请输入文本' }
       ]},
       { name: '滨州', disposableIncome: 37954, center: [118.0169, 37.3835], zoom: 10, geoUrl: './binzhou.geojson', color: '#3e7d68', bases: [
-        { name: '滨州基地', area: '滨城', lng: 118.013053, lat: 37.385082 }
+        { name: '滨州基地', area: '滨城', lng: 118.013053, lat: 37.385082, address: '请输入文本' }
       ]},
       { name: '青岛', disposableIncome: 59922, center: [120.3826, 36.0671], zoom: 9, geoUrl: './qingdao.geojson', color: '#347aa3', bases: [
-        { name: '青岛基地', area: '城阳', lng: 120.434457, lat: 36.305841 }
+        { name: '青岛基地', area: '城阳', lng: 120.434457, lat: 36.305841, address: '请输入文本' }
       ]},
       { name: '扬州', disposableIncome: 50439, center: [119.4127, 32.3942], zoom: 10, geoUrl: './yangzhou.geojson', color: '#8b6a3d', bases: [
-        { name: '邗江基地', area: '邗江', lng: 119.388581, lat: 32.361527 },
-        { name: '广陵基地', area: '广陵', lng: 119.476669, lat: 32.375904 }
+        { name: '邗江基地', area: '邗江', lng: 119.388581, lat: 32.361527, address: '请输入文本' },
+        { name: '广陵基地', area: '广陵', lng: 119.476669, lat: 32.375904, address: '请输入文本' }
       ]},
       { name: '沈阳', disposableIncome: 49758, center: [123.4315, 41.8057], zoom: 10, geoUrl: './shenyang.geojson', color: '#6b64a5', bases: [
-        { name: '和平区基地', area: '和平区', lng: 123.406276, lat: 41.795762 },
-        { name: '于洪区基地', area: '于洪区', lng: 123.362446, lat: 41.757514 }
+        { name: '和平区基地', area: '和平区', lng: 123.406276, lat: 41.795762, address: '请输入文本' },
+        { name: '于洪区基地', area: '于洪区', lng: 123.362446, lat: 41.757514, address: '请输入文本' }
       ]},
       { name: '湖州', disposableIncome: 67290, center: [120.0868, 30.8943], zoom: 9, geoUrl: './huzhou.geojson', color: '#4f8b56', bases: [
-        { name: '湖州基地', area: '安吉县', lng: 119.673075, lat: 30.620525 }
+        { name: '湖州基地', area: '安吉县', lng: 119.673075, lat: 30.620525, address: '请输入文本' }
       ]},
       { name: '泰州', disposableIncome: 51944, center: [119.9231, 32.4558], zoom: 10, geoUrl: './taizhou.geojson', color: '#b25b45', bases: [
-        { name: '泰州基地', area: '海陵', lng: 119.896533, lat: 32.390107 }
+        { name: '泰州基地', area: '海陵', lng: 119.896533, lat: 32.390107, address: '请输入文本' }
       ]}
     ];
 
@@ -500,6 +512,7 @@
     let infoWindow;
     let selectedCity = '';
     let selectedBaseKey = '';
+    let expandedCity = '';
     let baseFocusRequestId = 0;
     let boundariesVisible = false;
     let favoritesOnly = false;
@@ -658,7 +671,7 @@
           city,
           bases: hiddenOnly
             ? allBases.filter(({ base }) => isBaseHidden(city.name, base))
-            : normalized ? (cityMatches ? allBases : matchedBases) : selectedCity === city.name ? allBases : []
+            : normalized ? (cityMatches ? allBases : matchedBases) : expandedCity === city.name ? allBases : []
         };
       }).filter(Boolean);
       const modeHeader = hiddenOnly
@@ -671,7 +684,7 @@
         <button class="city-card ${selectedCity === city.name && !selectedBaseKey ? 'active' : ''}" type="button" data-role="city" data-city="${city.name}">
           <span class="city-dot" style="background:${city.color};color:${city.color}"></span>
           <span class="card-copy"><span class="city-name">${city.name}</span><span class="base-names">${city.bases.map(base => base.name + (!base.name.includes(base.area) ? `（${base.area}）` : '') + (isBaseHidden(city.name, base) ? ' · 已隐藏' : '') + (base.note ? ` · ${base.note}` : '')).join(' · ')}</span></span>
-          <span class="card-meta"><span class="favorite-star ${favoriteCities.has(city.name) ? 'saved' : ''}" role="button" tabindex="0" data-favorite="${city.name}" aria-label="${favoriteCities.has(city.name) ? '取消收藏' : '收藏'}${city.name}" title="${favoriteCities.has(city.name) ? '取消收藏' : '收藏城市'}">${favoriteCities.has(city.name) ? '★' : '☆'}</span><span class="count">${city.bases.length}</span></span>
+          <span class="card-meta">${!normalized && !hiddenOnly && expandedCity === city.name && bases.length ? `<span class="city-collapse" role="button" tabindex="0" data-collapse-city="${city.name}" aria-label="收起${city.name}基地列表" title="收起基地列表">▼</span>` : ''}<span class="favorite-star ${favoriteCities.has(city.name) ? 'saved' : ''}" role="button" tabindex="0" data-favorite="${city.name}" aria-label="${favoriteCities.has(city.name) ? '取消收藏' : '收藏'}${city.name}" title="${favoriteCities.has(city.name) ? '取消收藏' : '收藏城市'}">${favoriteCities.has(city.name) ? '★' : '☆'}</span><span class="count">${city.bases.length}</span></span>
         </button>
         ${bases.map(({ base, index }) => `
           <button class="city-card base-result ${selectedBaseKey === `${city.name}:${index}` ? 'active' : ''} ${isBaseHidden(city.name, base) ? 'is-hidden' : ''}" type="button" data-role="base" data-city="${city.name}" data-base-index="${index}">
@@ -689,6 +702,18 @@
         renderCityList(document.getElementById('search').value);
       });
       document.getElementById('restoreAllBases')?.addEventListener('click', restoreAllHiddenBases);
+      list.querySelectorAll('[data-collapse-city]').forEach(toggle => {
+        const collapse = event => {
+          event.preventDefault();
+          event.stopPropagation();
+          expandedCity = '';
+          renderCityList(document.getElementById('search').value);
+        };
+        toggle.addEventListener('click', collapse);
+        toggle.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') collapse(event);
+        });
+      });
       list.querySelectorAll('[data-favorite]').forEach(star => {
         const save = event => {
           event.preventDefault();
@@ -740,6 +765,7 @@
       baseFocusRequestId += 1;
       selectedCity = name;
       selectedBaseKey = '';
+      expandedCity = name;
       renderCityList(document.getElementById('search').value);
       infoWindow?.close();
       const coverage = visibleEntries.flatMap(({ base }) => baseLayerMap.get(baseStorageKey(name, base.name))?.circles
@@ -761,6 +787,7 @@
       const target = [base.lng, base.lat];
       selectedCity = cityName;
       selectedBaseKey = `${cityName}:${baseIndex}`;
+      expandedCity = cityName;
       renderCityList(document.getElementById('search').value);
       infoWindow?.close();
 
@@ -787,6 +814,7 @@
       infoWindow?.close();
       selectedCity = '';
       selectedBaseKey = '';
+      expandedCity = '';
       favoritesOnly = false;
       hiddenOnly = false;
       document.getElementById('search').value = '';
@@ -804,7 +832,7 @@
         <div class="info">
           <div class="city">所属城市 · ${city.name}</div>
           <h3>${base.name}</h3>
-          <p>所在区县/片区：${base.area}<br>经度：${base.lng}<br>纬度：${base.lat}<br>详细地址：${base.address || '请输入文本'}${base.note ? `<br><strong style="color:#d6543d">状态：${base.note}</strong>` : ''}</p>
+          <p>所在区县/片区：${base.area}<br>经度：${base.lng}<br>纬度：${base.lat}<br>基地详细地址：${base.address || '请输入文本'}${base.note ? `<br><strong style="color:#d6543d">状态：${base.note}</strong>` : ''}</p>
         </div>
       `);
       infoWindow.open(map, marker.getPosition());
