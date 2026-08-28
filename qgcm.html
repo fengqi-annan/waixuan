@@ -23,10 +23,17 @@
     }
     * { box-sizing: border-box; }
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    @font-face {
+      font-family: "LXGWWenKai";
+      src: url("LXGWWenKai-Regular.woff2") format("woff2");
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
     body {
       color: var(--ink);
       background: #e8eeec;
-      font-family: "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+      font-family: "LXGWWenKai", "Kaiti SC", "STKaiti", "KaiTi", "楷体", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
     }
     button, input { font: inherit; }
     #map { position: absolute; inset: 0; }
@@ -42,27 +49,42 @@
       overflow: hidden;
       border: 1px solid rgba(255,255,255,.8);
       border-radius: 22px;
-      background: var(--paper);
+      background: radial-gradient(130% 60% at 0% 0%, rgba(8,127,119,.07), transparent 55%), var(--paper);
       box-shadow: var(--shadow);
       backdrop-filter: blur(18px);
-      transition: transform .24s ease, opacity .2s ease;
+      transition: transform .46s cubic-bezier(.22, 1, .36, 1), opacity .3s ease;
+      will-change: transform, opacity;
     }
-    .sidebar.is-collapsed { opacity: 0; pointer-events: none; transform: translateX(calc(-100% - 30px)); }
-    .brand { flex: 0 0 auto; padding: 24px var(--panel-gutter) 18px; border-bottom: 1px solid var(--line); }
-    .eyebrow {
-      margin: 0 0 8px;
-      color: var(--teal);
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: .18em;
+    .sidebar.is-collapsed { opacity: 0; pointer-events: none; transform: translateX(calc(-100% - 34px)) scale(.985); }
+    .brand { flex: 0 0 auto; padding: 20px var(--panel-gutter) 16px; border-bottom: 1px solid var(--line); }
+    h1 {
+      margin: 0;
+      font-family: inherit;
+      font-size: 27px;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: 0;
     }
-    h1 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 28px; line-height: 1.15; letter-spacing: -.02em; }
     .subtitle { margin: 9px 0 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+    .brand-head { display: flex; align-items: center; gap: 12px; }
+    .emblem {
+      flex: 0 0 auto;
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      background: linear-gradient(140deg, #159a8e, #075a55);
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(8, 127, 119, .3), inset 0 1px 0 rgba(255, 255, 255, .22);
+    }
+    .emblem svg { width: 24px; height: 24px; }
     .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 18px; }
-    .stat { position: relative; padding: 11px 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.76); text-align: left; }
+    .stat { position: relative; padding: 11px 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.76); text-align: center; }
     button.stat, a.stat { width: 100%; color: inherit; cursor: pointer; text-decoration: none; transition: .18s ease; }
-    button.stat:hover, button.stat.active, a.stat:hover { border-color: rgba(8,127,119,.38); background: rgba(8,127,119,.09); }
-    .stat strong { display: block; color: var(--ink); font-family: Georgia, serif; font-size: 22px; line-height: 1; }
+    button.stat:hover, a.stat:hover { border-color: rgba(8,127,119,.38); background: rgba(8,127,119,.09); transform: translateY(-1px); box-shadow: 0 8px 18px rgba(24,50,56,.09); }
+    button.stat.active { border-color: rgba(8,127,119,.38); background: rgba(8,127,119,.09); }
+    .stat strong { display: block; color: var(--ink); font-family: inherit; font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 800; line-height: 1; }
     .stat span { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
     .tools { flex: 0 0 auto; padding: 14px var(--panel-gutter); border-bottom: 1px solid var(--line); }
     .search-wrap { position: relative; }
@@ -159,8 +181,14 @@
       -webkit-overflow-scrolling: touch;
       padding: 10px var(--panel-gutter);
       scrollbar-width: thin;
+      scrollbar-color: rgba(8,127,119,.3) transparent;
     }
+    .city-list::-webkit-scrollbar { width: 9px; }
+    .city-list::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 999px; background: rgba(8,127,119,.24); background-clip: padding-box; }
+    .city-list::-webkit-scrollbar-thumb:hover { background: rgba(8,127,119,.42); background-clip: padding-box; }
+    .city-list::-webkit-scrollbar-track { background: transparent; }
     .city-card {
+      position: relative;
       width: 100%;
       display: grid;
       grid-template-columns: 10px minmax(0, 1fr) auto;
@@ -176,7 +204,7 @@
       cursor: pointer;
       transition: .16s ease;
     }
-    .city-card:hover { background: rgba(255,255,255,.8); border-color: var(--line); transform: translateX(2px); }
+    .city-card:hover { background: rgba(255,255,255,.8); border-color: var(--line); transform: translateX(2px); box-shadow: 0 4px 14px rgba(24,50,56,.06); }
     .city-card.active { background: #fff; border-color: rgba(8,127,119,.28); box-shadow: 0 6px 18px rgba(24,50,56,.07); }
     .card-copy { min-width: 0; overflow: hidden; }
     .card-meta { display: flex; align-items: center; gap: 5px; }
@@ -199,7 +227,7 @@
     .visibility-toggle.hidden-base { color: #879497; }
     .visibility-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
     .base-result.is-hidden { opacity: .68; }
-    .city-card.base-result { width: calc(100% - 14px); margin-left: 14px; background: rgba(255,255,255,.42); }
+    .city-card.base-result { width: calc(100% - 14px); margin: 0 0 4px 14px; background: rgba(255,255,255,.42); }
     .city-card.base-result .city-dot { width: 7px; height: 7px; }
     .city-card.base-result .city-name { font-size: 13px; }
     .city-dot { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 15%, transparent); }
@@ -209,6 +237,21 @@
     .list-mode button { border: 0; background: transparent; color: var(--teal); font-size: 10px; font-weight: 800; cursor: pointer; }
     .list-mode-actions { display: flex; align-items: center; gap: 8px; }
     .count { min-width: 28px; padding: 4px 7px; text-align: center; border-radius: 999px; background: #edf2f0; color: var(--muted); font-size: 10px; font-weight: 800; }
+    .city-name-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .city-name-row .count { min-width: auto; flex: 0 0 auto; padding: 2px 7px; }
+    .city-name-row .city-name { min-width: 0; }
+    .hl { background: rgba(213, 155, 49, .26); border-radius: 3px; color: inherit; padding: 0 1px; }
+    .expand-chevron {
+      width: 18px;
+      height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #9aabad;
+      transition: transform .3s cubic-bezier(.22, 1, .36, 1), color .18s ease;
+    }
+    .expand-chevron svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+    .city-card.expanded .expand-chevron { color: var(--teal); transform: rotate(180deg); }
     .footer { flex: 0 0 auto; display: grid; grid-template-columns: repeat(3, 88px); align-items: center; justify-content: space-between; gap: 8px; padding: var(--footer-pad-y) var(--panel-gutter); border-top: 1px solid var(--line); background: var(--paper); }
     .status { display: flex; align-items: center; justify-content: center; min-width: 0; color: var(--muted); font-size: 10px; }
     .tools .status { margin-top: 8px; padding: 0 4px; }
@@ -267,7 +310,8 @@
       box-shadow: 0 10px 30px rgba(19,47,53,.12);
       font-size: 10px;
       backdrop-filter: blur(12px);
-      transition: transform .24s ease, opacity .2s ease;
+      transition: transform .46s cubic-bezier(.22, 1, .36, 1), opacity .3s ease;
+      will-change: transform, opacity;
     }
     .legend.is-collapsed { opacity: 0; pointer-events: none; transform: translateY(calc(100% + 30px)); }
     .legend-item { display: flex; align-items: center; gap: 6px; }
@@ -344,8 +388,21 @@
       transform: translate(-50%, -50%);
       backdrop-filter: blur(12px);
     }
-    .loading strong { display: block; font-family: Georgia, "Songti SC", serif; font-size: 17px; }
+    .loading strong { display: block; font-family: inherit; font-size: 17px; }
     .loading span { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
+    .loading-pin {
+      width: 44px;
+      height: 44px;
+      margin: 0 auto 12px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(8, 127, 119, .1);
+      color: var(--teal);
+      animation: pinBounce 1.5s ease-in-out infinite;
+    }
+    .loading-pin svg { width: 24px; height: 24px; }
+    @keyframes pinBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
     .hidden { display: none !important; }
     .amap-toolbar {
       top: max(var(--panel-x), env(safe-area-inset-top)) !important;
@@ -400,6 +457,8 @@
       .poi-suggestions { max-height: min(248px, 38dvh); }
       .city-list { min-height: 86px; padding: 6px var(--panel-gutter); }
       .city-card { padding: 9px; }
+      .emblem { width: 34px; height: 34px; border-radius: 10px; }
+      .emblem svg { width: 20px; height: 20px; }
       .footer { grid-template-columns: repeat(3, 1fr); padding: var(--footer-pad-y) var(--panel-gutter); }
       .footer .interface-toggle,
       .footer .reset-btn,
@@ -425,6 +484,7 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .sidebar, .legend { transition: none; }
+      .loading-pin { animation: none; }
     }
   </style>
 </head>
@@ -433,13 +493,15 @@
 
   <aside class="sidebar" id="controlPanel" aria-label="基地地图控制面板">
     <header class="brand">
-      <p class="eyebrow">NATIONAL BASE NETWORK</p>
-      <h1>全国基地分布图</h1>
+      <div class="brand-head">
+        <span class="emblem" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="5.6" r="1.4"/><circle cx="20" cy="5.6" r="1.4"/><circle cx="4" cy="18.4" r="1.4"/><circle cx="20" cy="18.4" r="1.4"/><path d="M12 20.6s-5.4-4.7-5.4-9A5.4 5.4 0 0 1 12 6.2a5.4 5.4 0 0 1 5.4 5.4c0 4.3-5.4 9-5.4 9Z"/><circle cx="12" cy="11.4" r="2.1" fill="currentColor" stroke="none"/></svg></span>
+        <h1>全国基地分布图</h1>
+      </div>
       <p class="subtitle">一张地图汇总城市区划、基地坐标与服务半径。点击城市即可快速聚焦。</p>
       <div class="stats">
         <button class="stat" id="cityOverview" type="button" title="进入全国视图"><strong id="cityTotal">16</strong><span>覆盖城市</span></button>
-        <button class="stat" id="favoriteView" type="button" aria-pressed="false"><strong id="favoriteTotal">0</strong><span>收藏城市</span></button>
-        <button class="stat" id="hiddenView" type="button" aria-pressed="false"><strong id="hiddenTotal">0</strong><span>隐藏基地</span></button>
+        <button class="stat" id="favoriteView" type="button" aria-pressed="false"><strong id="favoriteTotal">00</strong><span>收藏城市</span></button>
+        <button class="stat" id="hiddenView" type="button" aria-pressed="false"><strong id="hiddenTotal">00</strong><span>隐藏基地</span></button>
         <a class="stat" id="baseDirectory" href="https://my.feishu.cn/share/base/view/shrcndD2GzgSL4MV61fIPztuDYb" target="_blank" rel="noopener" title="新窗口打开飞书文档"><strong id="baseTotal">33</strong><span>收录基地</span></a>
       </div>
     </header>
@@ -491,20 +553,26 @@
     <span class="legend-item"><i class="legend-ring dotted"></i>15km 短虚线</span>
   </div>
 
-  <div class="loading" id="loading"><strong>正在打开全国地图</strong><span>加载基地与城市区划数据…</span></div>
+  <div class="loading" id="loading">
+    <span class="loading-pin" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10Z"/><circle cx="12" cy="11" r="2.3" fill="currentColor" stroke="none"/></svg></span>
+    <strong>正在打开全国地图</strong>
+    <span>加载基地与城市区划数据…</span>
+  </div>
 
   <script>
     // ===== 日常维护区：基地资料修改请优先在这里完成 =====
     // id：固定识别码，设置后不要修改；修改显示名称时，本地收藏和隐藏记录才不会失效。
     // name：页面显示名称，可直接修改，例如将“西湖基地”改成“天目里基地”。
     // 城市项：disposableIncome 控制城市排序；center 是城市汇总点；geoUrl 对应区划数据；color 是城市颜色。
+    // focusBases（可选）：点击该城市聚焦时只以列出的基地定视野。未配置则使用全部可见基地。
+    //   例如徐州只聚焦市区两个基地（鼓楼、贾汪），杭州暂时忽略大江东（钱塘）基地。
     // area：所属区县，用于搜索和区划说明。
     // lng / lat：经度 / 纬度；address：信息窗详细地址。
     const cities = [
       { id: 'chengdu', name: '成都', disposableIncome: 53620, center: [104.0665, 30.5723], geoUrl: './chengdu.geojson', color: '#d97732', bases: [
         { id: 'chengdu-shuangliu', name: '成都基地', area: '双流', lng: 104.071389, lat: 30.503426, address: '请输入文本' }
       ]},
-      { id: 'hangzhou', name: '杭州', disposableIncome: 76777, center: [120.1552, 30.2729], geoUrl: './hangzhou.geojson', color: '#007f78', bases: [
+      { id: 'hangzhou', name: '杭州', disposableIncome: 76777, center: [120.1552, 30.2729], geoUrl: './hangzhou.geojson', color: '#007f78', focusBases: ['hangzhou-yuhang', 'hangzhou-gongshu', 'hangzhou-binjiang', 'hangzhou-xihu', 'hangzhou-fuyang', 'hangzhou-fanxing'], bases: [
         { id: 'hangzhou-yuhang', name: '杭州基地', area: '余杭', lng: 120.030657, lat: 30.242448, address: '请输入文本' },
         { id: 'hangzhou-gongshu', name: '拱墅社区', area: '拱墅', lng: 120.12167, lat: 30.322637, address: '请输入文本' },
         { id: 'hangzhou-binjiang', name: '滨江社区', area: '滨江', lng: 120.212561, lat: 30.177514, address: '请输入文本' },
@@ -536,7 +604,7 @@
         { id: 'xian-yanta', name: '雁塔区', area: '雁塔', lng: 108.872867, lat: 34.209048, address: '请输入文本' },
         { id: 'xian-lianhu', name: '莲湖区', area: '莲湖', lng: 108.884328, lat: 34.278724, address: '请输入文本' }
       ]},
-      { id: 'xuzhou', name: '徐州', disposableIncome: 40251, center: [117.1844, 34.2618], geoUrl: './xuzhou.geojson', color: '#19809d', bases: [
+      { id: 'xuzhou', name: '徐州', disposableIncome: 40251, center: [117.1844, 34.2618], geoUrl: './xuzhou.geojson', color: '#19809d', focusBases: ['xuzhou-gulou', 'xuzhou-jiawang'], bases: [
         { id: 'xuzhou-jiawang', name: '东区', area: '贾汪', lng: 117.289725, lat: 34.268725, address: '请输入文本' },
         { id: 'xuzhou-gulou', name: '徐州基地', area: '鼓楼', lng: 117.179488, lat: 34.273124, address: '请输入文本' },
         { id: 'xuzhou-pizhou', name: '邳州基地', area: '邳州', lng: 117.950381, lat: 34.331705, address: '请输入文本' },
@@ -630,6 +698,10 @@
       return `${city.id}::${base.id}`;
     }
 
+    function pad2(value) {
+      return String(value).padStart(2, '0');
+    }
+
     // 兼容旧版本以名称保存的收藏和隐藏记录；以后修改显示名称不会丢失状态。
     const favoriteCities = new Set(readStoredArray(FAVORITES_KEY).map(value =>
       cities.find(city => city.id === value || city.name === value)?.id
@@ -653,8 +725,8 @@
       '#93B84E', '#B978B6'
     ];
 
-    document.getElementById('cityTotal').textContent = cities.length;
-    document.getElementById('baseTotal').textContent = cities.reduce((sum, city) => sum + city.bases.length, 0);
+    document.getElementById('cityTotal').textContent = pad2(cities.length);
+    document.getElementById('baseTotal').textContent = pad2(cities.reduce((sum, city) => sum + city.bases.length, 0));
 
     function isBaseHidden(city, base) {
       return hiddenBases.has(baseStorageKey(city, base));
@@ -671,14 +743,14 @@
     }
 
     function updateFavoriteSummary() {
-      document.getElementById('favoriteTotal').textContent = favoriteCities.size;
+      document.getElementById('favoriteTotal').textContent = pad2(favoriteCities.size);
       const button = document.getElementById('favoriteView');
       button.classList.toggle('active', favoritesOnly);
       button.setAttribute('aria-pressed', String(favoritesOnly));
     }
 
     function updateHiddenSummary() {
-      document.getElementById('hiddenTotal').textContent = hiddenBases.size;
+      document.getElementById('hiddenTotal').textContent = pad2(hiddenBases.size);
       const button = document.getElementById('hiddenView');
       button.classList.toggle('active', hiddenOnly);
       button.setAttribute('aria-pressed', String(hiddenOnly));
@@ -767,6 +839,24 @@
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#39;');
+    }
+
+    function highlightMatch(text, query) {
+      const escaped = escapeHTML(text);
+      if (!query) return escaped;
+      const lower = escaped.toLowerCase();
+      let output = '';
+      let cursor = 0;
+      for (;;) {
+        const hit = lower.indexOf(query, cursor);
+        if (hit === -1) {
+          output += escaped.slice(cursor);
+          break;
+        }
+        output += escaped.slice(cursor, hit) + '<mark class="hl">' + escaped.slice(hit, hit + query.length) + '</mark>';
+        cursor = hit + query.length;
+      }
+      return output;
     }
 
     function poiText(value) {
@@ -1099,15 +1189,15 @@
         ? '暂无隐藏基地'
         : favoritesOnly && favoriteCities.size === 0 ? '暂无收藏城市，点击城市右侧星标即可收藏' : '没有匹配的城市或基地';
       list.innerHTML = modeHeader + (groups.map(({ city, allBases, bases }) => `
-        <button class="city-card ${selectedCity === city.name && !selectedBaseKey ? 'active' : ''}" type="button" data-role="city" data-city="${city.name}">
+        <button class="city-card ${selectedCity === city.name && !selectedBaseKey ? 'active' : ''} ${expandedCity === city.name ? 'expanded' : ''}" type="button" data-role="city" data-city="${city.name}">
           <span class="city-dot" style="background:${city.color};color:${city.color}"></span>
-          <span class="card-copy"><span class="city-name">${city.name}</span><span class="base-names">${allBases.map(({ base }) => base.name + (!base.name.includes(base.area) ? `（${base.area}）` : '') + (isBaseHidden(city, base) ? ' · 已隐藏' : '')).join(' · ')}</span></span>
-          <span class="card-meta"><span class="favorite-star ${favoriteCities.has(city.id) ? 'saved' : ''}" role="button" tabindex="0" data-favorite="${city.name}" aria-label="${favoriteCities.has(city.id) ? '取消收藏' : '收藏'}${city.name}" title="${favoriteCities.has(city.id) ? '取消收藏' : '收藏城市'}">${favoriteCities.has(city.id) ? '★' : '☆'}</span><span class="count">${city.bases.length}</span></span>
+          <span class="card-copy"><span class="city-name-row"><span class="city-name">${highlightMatch(city.name, normalized)}</span><span class="count">${city.bases.length}</span></span><span class="base-names">${allBases.map(({ base }) => highlightMatch(base.name + (!base.name.includes(base.area) ? `（${base.area}）` : '') + (isBaseHidden(city, base) ? ' · 已隐藏' : ''), normalized)).join(' · ')}</span></span>
+          <span class="card-meta"><span class="favorite-star ${favoriteCities.has(city.id) ? 'saved' : ''}" role="button" tabindex="0" data-favorite="${city.name}" aria-label="${favoriteCities.has(city.id) ? '取消收藏' : '收藏'}${city.name}" title="${favoriteCities.has(city.id) ? '取消收藏' : '收藏城市'}">${favoriteCities.has(city.id) ? '★' : '☆'}</span><span class="expand-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></span>
         </button>
         ${bases.map(({ base, index }) => `
           <button class="city-card base-result ${selectedBaseKey === `${city.name}:${index}` ? 'active' : ''} ${isBaseHidden(city, base) ? 'is-hidden' : ''}" type="button" data-role="base" data-city="${city.name}" data-base-index="${index}">
             <span class="city-dot" style="background:${city.color};color:${city.color}"></span>
-            <span class="card-copy"><span class="city-name">${base.name}</span><span class="base-names">${city.name} · ${base.area}</span></span>
+            <span class="card-copy"><span class="city-name">${highlightMatch(base.name, normalized)}</span><span class="base-names">${highlightMatch(`${city.name} · ${base.area}`, normalized)}</span></span>
             <span class="card-meta"><span class="visibility-toggle ${isBaseHidden(city, base) ? 'hidden-base' : ''}" role="button" tabindex="0" data-visibility-city="${city.name}" data-visibility-index="${index}" aria-label="${isBaseHidden(city, base) ? '恢复显示' : '隐藏'}${base.name}" title="${isBaseHidden(city, base) ? '恢复显示' : '隐藏基地'}">${visibilityIcon(isBaseHidden(city, base))}</span><span class="count">基地</span></span>
           </button>
         `).join('')}
@@ -1181,10 +1271,15 @@
       expandedCity = name;
       renderCityList(query);
       infoWindow?.close();
-      const coverage = visibleEntries.flatMap(({ base }) => baseLayerMap.get(baseStorageKey(city, base))?.circles
+      // 部分城市（如徐州）基地分散，可配置 focusBases 只用指定基地定视野，避免视野被远端基地拉飞
+      const focusEntries = city.focusBases?.length
+        ? visibleEntries.filter(({ base }) => city.focusBases.includes(base.id))
+        : visibleEntries;
+      const fitEntries = focusEntries.length ? focusEntries : visibleEntries;
+      const coverage = fitEntries.flatMap(({ base }) => baseLayerMap.get(baseStorageKey(city, base))?.circles
         .filter(({ radius }) => radius === 15000)
         .map(({ circle }) => circle) || []);
-      const visibleMarkers = visibleEntries.map(({ index }) => cityMarkerMap.get(name)?.[index]).filter(Boolean);
+      const visibleMarkers = fitEntries.map(({ index }) => cityMarkerMap.get(name)?.[index]).filter(Boolean);
       const padding = window.innerWidth > 700
         ? [64, 64, 64, 372]
         : [64, 54, Math.round(window.innerHeight * .46), 54];
@@ -1402,21 +1497,23 @@
           if (!geoJSON || !Array.isArray(geoJSON.features) || geoJSON.features.length === 0) throw new Error('数据为空');
           const cityIndex = cities.indexOf(city);
           let fallbackDistrictIndex = 0;
+          const districtPolygons = [];
           const layer = new AMap.GeoJSON({
             geoJSON,
             getPolygon: (feature, lnglats) => {
               const sourceIndex = Number(feature?.properties?.subFeatureIndex);
               const districtIndex = Number.isFinite(sourceIndex) ? sourceIndex : fallbackDistrictIndex++;
-              const fillColor = DISTRICT_COLORS[(cityIndex * 7 + districtIndex) % DISTRICT_COLORS.length];
-              return new AMap.Polygon({
+              const polygon = new AMap.Polygon({
                 path: lnglats,
                 strokeColor: '#55666b',
                 strokeWeight: .85,
                 strokeOpacity: .62,
-                fillColor,
+                fillColor: DISTRICT_COLORS[(cityIndex * 7 + districtIndex) % DISTRICT_COLORS.length],
                 fillOpacity: .24,
                 zIndex: 80
               });
+              districtPolygons.push(polygon);
+              return polygon;
             }
           });
           const outlineLayers = buildCityOutlinePaths(geoJSON).map(path => new AMap.Polyline({
@@ -1429,7 +1526,7 @@
             lineCap: 'round',
             zIndex: 92
           }));
-          cityBoundaryLayers.set(city.name, { districts: layer, outline: outlineLayers });
+          cityBoundaryLayers.set(city.name, { districts: layer, outline: outlineLayers, districtPolygons });
           if (boundariesVisible && visibleBaseEntries(city).length > 0) map.add([layer, ...outlineLayers]);
           return city.name;
         });
@@ -1463,8 +1560,23 @@
       });
     }
 
+    function randomizeBoundaryColors() {
+      cityBoundaryLayers.forEach(({ districtPolygons }) => {
+        if (!districtPolygons || districtPolygons.length === 0) return;
+        const palette = [...DISTRICT_COLORS];
+        for (let i = palette.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [palette[i], palette[j]] = [palette[j], palette[i]];
+        }
+        districtPolygons.forEach((polygon, index) => {
+          polygon.setOptions({ fillColor: palette[index % palette.length] });
+        });
+      });
+    }
+
     function setBoundariesVisible(visible) {
       boundariesVisible = visible;
+      randomizeBoundaryColors();
       refreshBoundaryVisibility();
       const button = document.getElementById('boundaryToggle');
       button.classList.toggle('active', visible);
