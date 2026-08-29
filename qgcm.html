@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>全国基地分布图</title>
+  <link rel="preload" href="LXGWWenKai-GB2312.woff2" as="font" type="font/woff2" crossorigin />
   <style>
     :root {
       --ink: #183238;
@@ -25,7 +26,7 @@
     html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
     @font-face {
       font-family: "LXGWWenKai";
-      src: url("LXGWWenKai-Regular.woff2") format("woff2");
+      src: url("LXGWWenKai-GB2312.woff2") format("woff2");
       font-weight: normal;
       font-style: normal;
       font-display: swap;
@@ -227,9 +228,17 @@
     .visibility-toggle.hidden-base { color: #879497; }
     .visibility-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
     .base-result.is-hidden { opacity: .68; }
-    .city-card.base-result { width: calc(100% - 14px); margin: 0 0 4px 14px; background: rgba(255,255,255,.42); }
+    .city-card.base-result { position: relative; z-index: 1; width: 100%; margin: 0 0 2px; background: rgba(255,255,255,.42); }
+    .city-card.base-result:hover { transform: none; }
     .city-card.base-result .city-dot { width: 7px; height: 7px; }
     .city-card.base-result .city-name { font-size: 13px; }
+    .base-tree { position: relative; margin: 0 0 6px 16px; }
+    .base-tree.tree-anim .city-card.base-result { animation: baseRowIn .32s cubic-bezier(.22, 1, .36, 1) backwards; }
+    .base-tree.tree-collapsing .city-card.base-result { animation: baseRowOut .18s ease forwards; }
+    @keyframes baseRowIn { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+    @keyframes baseRowOut { to { opacity: 0; transform: translateX(8px); } }
+    /* 展开后城市卡不再随 hover 漂移 */
+    .city-card.expanded:hover { transform: none; }
     .city-dot { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 15%, transparent); }
     .city-name { font-size: 14px; font-weight: 700; }
     .base-names { display: block; margin-top: 3px; overflow: hidden; color: var(--muted); font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
@@ -457,6 +466,7 @@
       .poi-suggestions { max-height: min(248px, 38dvh); }
       .city-list { min-height: 86px; padding: 6px var(--panel-gutter); }
       .city-card { padding: 9px; }
+      .base-tree { margin-left: 14px; }
       .emblem { width: 34px; height: 34px; border-radius: 10px; }
       .emblem svg { width: 20px; height: 20px; }
       .footer { grid-template-columns: repeat(3, 1fr); padding: var(--footer-pad-y) var(--panel-gutter); }
@@ -484,6 +494,8 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .sidebar, .legend { transition: none; }
+      .base-tree.tree-anim .city-card.base-result,
+      .base-tree.tree-collapsing .city-card.base-result { animation: none; }
       .loading-pin { animation: none; }
     }
   </style>
@@ -679,6 +691,7 @@
     const citySummaryEntries = [];
     const cityMarkerMap = new Map();
     const baseLayerMap = new Map();
+    const animatedTrees = new Set();
     const FAVORITES_KEY = 'national-base-map-favorites';
     const HIDDEN_BASES_KEY = 'national-base-map-hidden-bases';
     function readStoredArray(key) {
@@ -1161,6 +1174,7 @@
       });
     }
 
+    let listRenderToken = 0;
     function renderCityList(query = '') {
       const normalized = query.trim().toLowerCase();
       const list = document.getElementById('cityList');
@@ -1188,56 +1202,77 @@
       const emptyText = hiddenOnly
         ? '暂无隐藏基地'
         : favoritesOnly && favoriteCities.size === 0 ? '暂无收藏城市，点击城市右侧星标即可收藏' : '没有匹配的城市或基地';
-      list.innerHTML = modeHeader + (groups.map(({ city, allBases, bases }) => `
-        <button class="city-card ${selectedCity === city.name && !selectedBaseKey ? 'active' : ''} ${expandedCity === city.name ? 'expanded' : ''}" type="button" data-role="city" data-city="${city.name}">
-          <span class="city-dot" style="background:${city.color};color:${city.color}"></span>
-          <span class="card-copy"><span class="city-name-row"><span class="city-name">${highlightMatch(city.name, normalized)}</span><span class="count">${city.bases.length}</span></span><span class="base-names">${allBases.map(({ base }) => highlightMatch(base.name + (!base.name.includes(base.area) ? `（${base.area}）` : '') + (isBaseHidden(city, base) ? ' · 已隐藏' : ''), normalized)).join(' · ')}</span></span>
-          <span class="card-meta"><span class="favorite-star ${favoriteCities.has(city.id) ? 'saved' : ''}" role="button" tabindex="0" data-favorite="${city.name}" aria-label="${favoriteCities.has(city.id) ? '取消收藏' : '收藏'}${city.name}" title="${favoriteCities.has(city.id) ? '取消收藏' : '收藏城市'}">${favoriteCities.has(city.id) ? '★' : '☆'}</span><span class="expand-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></span>
-        </button>
-        ${bases.map(({ base, index }) => `
-          <button class="city-card base-result ${selectedBaseKey === `${city.name}:${index}` ? 'active' : ''} ${isBaseHidden(city, base) ? 'is-hidden' : ''}" type="button" data-role="base" data-city="${city.name}" data-base-index="${index}">
-            <span class="city-dot" style="background:${city.color};color:${city.color}"></span>
-            <span class="card-copy"><span class="city-name">${highlightMatch(base.name, normalized)}</span><span class="base-names">${highlightMatch(`${city.name} · ${base.area}`, normalized)}</span></span>
-            <span class="card-meta"><span class="visibility-toggle ${isBaseHidden(city, base) ? 'hidden-base' : ''}" role="button" tabindex="0" data-visibility-city="${city.name}" data-visibility-index="${index}" aria-label="${isBaseHidden(city, base) ? '恢复显示' : '隐藏'}${base.name}" title="${isBaseHidden(city, base) ? '恢复显示' : '隐藏基地'}">${visibilityIcon(isBaseHidden(city, base))}</span><span class="count">基地</span></span>
-          </button>
-        `).join('')}
-      `).join('') || `<p style="padding:18px;color:#65777a;font-size:12px;text-align:center">${emptyText}</p>`);
-      document.getElementById('showAllCities')?.addEventListener('click', () => {
-        favoritesOnly = false;
-        hiddenOnly = false;
-        updateFavoriteSummary();
-        updateHiddenSummary();
-        renderCityList(document.getElementById('search').value);
-      });
-      document.getElementById('restoreAllBases')?.addEventListener('click', restoreAllHiddenBases);
-      list.querySelectorAll('[data-favorite]').forEach(star => {
-        const save = event => {
-          event.preventDefault();
-          event.stopPropagation();
-          toggleFavorite(star.dataset.favorite);
-        };
-        star.addEventListener('click', save);
-        star.addEventListener('keydown', event => {
-          if (event.key === 'Enter' || event.key === ' ') save(event);
+      const keptTreeCities = new Set(groups.filter(group => group.bases.length > 0).map(group => group.city.name));
+      const outgoingTrees = [...list.querySelectorAll('.base-tree')].filter(tree => !keptTreeCities.has(tree.dataset.city));
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
+      const renderToken = ++listRenderToken;
+      const paint = () => {
+        if (renderToken !== listRenderToken) return;
+        list.innerHTML = modeHeader + (groups.map(({ city, allBases, bases }) => {
+          if (bases.length === 0) animatedTrees.delete(city.name);
+          const animateTree = !animatedTrees.has(city.name);
+          if (bases.length > 0) animatedTrees.add(city.name);
+          const treeHtml = bases.length
+            ? `<div class="base-tree ${animateTree ? 'tree-anim' : ''}" data-city="${city.name}">${bases.map(({ base, index }, position) => `
+                <button class="city-card base-result ${selectedBaseKey === `${city.name}:${index}` ? 'active' : ''} ${isBaseHidden(city, base) ? 'is-hidden' : ''}" type="button" data-role="base" data-city="${city.name}" data-base-index="${index}" style="animation-delay:${animateTree ? position * 36 : 0}ms">
+                  <span class="city-dot" style="background:${city.color};color:${city.color}"></span>
+                  <span class="card-copy"><span class="city-name">${highlightMatch(base.name, normalized)}</span><span class="base-names">${highlightMatch(`${city.name} · ${base.area}`, normalized)}</span></span>
+                  <span class="card-meta"><span class="visibility-toggle ${isBaseHidden(city, base) ? 'hidden-base' : ''}" role="button" tabindex="0" data-visibility-city="${city.name}" data-visibility-index="${index}" aria-label="${isBaseHidden(city, base) ? '恢复显示' : '隐藏'}${base.name}" title="${isBaseHidden(city, base) ? '恢复显示' : '隐藏基地'}">${visibilityIcon(isBaseHidden(city, base))}</span><span class="count">基地</span></span>
+                </button>
+              `).join('')}</div>`
+            : '';
+          return `
+            <button class="city-card ${selectedCity === city.name && !selectedBaseKey ? 'active' : ''} ${expandedCity === city.name ? 'expanded' : ''}" type="button" data-role="city" data-city="${city.name}">
+              <span class="city-dot" style="background:${city.color};color:${city.color}"></span>
+              <span class="card-copy"><span class="city-name-row"><span class="city-name">${highlightMatch(city.name, normalized)}</span><span class="count">${city.bases.length}</span></span><span class="base-names">${allBases.map(({ base }) => highlightMatch(base.name + (!base.name.includes(base.area) ? `（${base.area}）` : '') + (isBaseHidden(city, base) ? ' · 已隐藏' : ''), normalized)).join(' · ')}</span></span>
+              <span class="card-meta"><span class="favorite-star ${favoriteCities.has(city.id) ? 'saved' : ''}" role="button" tabindex="0" data-favorite="${city.name}" aria-label="${favoriteCities.has(city.id) ? '取消收藏' : '收藏'}${city.name}" title="${favoriteCities.has(city.id) ? '取消收藏' : '收藏城市'}">${favoriteCities.has(city.id) ? '★' : '☆'}</span><span class="expand-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></span>
+            </button>
+            ${treeHtml}
+          `;
+        }).join('') || `<p style="padding:18px;color:#65777a;font-size:12px;text-align:center">${emptyText}</p>`);
+        document.getElementById('showAllCities')?.addEventListener('click', () => {
+          favoritesOnly = false;
+          hiddenOnly = false;
+          updateFavoriteSummary();
+          updateHiddenSummary();
+          renderCityList(document.getElementById('search').value);
         });
-      });
-      list.querySelectorAll('[data-visibility-city]').forEach(toggle => {
-        const change = event => {
-          event.preventDefault();
-          event.stopPropagation();
-          toggleBaseVisibility(toggle.dataset.visibilityCity, Number(toggle.dataset.visibilityIndex));
-        };
-        toggle.addEventListener('click', change);
-        toggle.addEventListener('keydown', event => {
-          if (event.key === 'Enter' || event.key === ' ') change(event);
+        document.getElementById('restoreAllBases')?.addEventListener('click', restoreAllHiddenBases);
+        list.querySelectorAll('[data-favorite]').forEach(star => {
+          const save = event => {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleFavorite(star.dataset.favorite);
+          };
+          star.addEventListener('click', save);
+          star.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') save(event);
+          });
         });
-      });
-      list.querySelectorAll('[data-role="city"]').forEach(button => {
-        button.addEventListener('click', () => focusCity(button.dataset.city));
-      });
-      list.querySelectorAll('[data-role="base"]').forEach(button => {
-        button.addEventListener('click', () => focusBase(button.dataset.city, Number(button.dataset.baseIndex)));
-      });
+        list.querySelectorAll('[data-visibility-city]').forEach(toggle => {
+          const change = event => {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleBaseVisibility(toggle.dataset.visibilityCity, Number(toggle.dataset.visibilityIndex));
+          };
+          toggle.addEventListener('click', change);
+          toggle.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') change(event);
+          });
+        });
+        list.querySelectorAll('[data-role="city"]').forEach(button => {
+          button.addEventListener('click', () => focusCity(button.dataset.city));
+        });
+        list.querySelectorAll('[data-role="base"]').forEach(button => {
+          button.addEventListener('click', () => focusBase(button.dataset.city, Number(button.dataset.baseIndex)));
+        });
+      };
+      if (outgoingTrees.length && !reduceMotion) {
+        outgoingTrees.forEach(tree => tree.classList.add('tree-collapsing'));
+        setTimeout(paint, 190);
+      } else {
+        paint();
+      }
     }
 
     function activateSearchResult() {
