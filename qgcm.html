@@ -438,30 +438,27 @@
         --panel-gutter: 12px;
         --footer-pad-y: 9px;
       }
+      /* 手机上不再给地图留空：面板铺满整屏，尽量多显示城市和基地列表 */
       .sidebar {
-        top: auto;
+        top: max(var(--panel-x), env(safe-area-inset-top));
         left: max(var(--panel-x), env(safe-area-inset-left));
         right: max(var(--panel-x), env(safe-area-inset-right));
         bottom: max(var(--panel-bottom), env(safe-area-inset-bottom));
         width: auto;
-        height: 62vh;
-        height: clamp(430px, 62dvh, 620px);
-        max-height: calc(100vh - 20px);
-        max-height: calc(100dvh - 20px);
+        height: auto;
+        max-height: none;
         border-radius: 18px;
       }
-      .sidebar.search-active {
-        height: calc(100vh - 20px);
-        height: calc(100dvh - 20px);
-      }
       .sidebar.is-collapsed { transform: translateY(calc(100% + 24px)); }
-      .brand { padding: 16px var(--panel-gutter) 12px; }
-      h1 { font-size: 22px; }
+      .brand { padding: 15px var(--panel-gutter) 13px; }
+      h1 { font-size: 21px; }
       .subtitle { display: none; }
-      .stats { position: absolute; top: 13px; right: var(--panel-gutter); gap: 4px; margin: 0; }
-      .stat { min-width: 34px; padding: 6px 3px; border-radius: 9px; text-align: center; }
-      .stat strong { font-size: 15px; }
-      .stat span { display: none; }
+      .brand-head { gap: 10px; }
+      /* 手机上标题与右上角数字会互相压字，改为标题下方整行四格，数字和名称都完整显示 */
+      .stats { position: static; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 11px 0 0; }
+      .stat { min-width: 0; padding: 7px 4px 6px; border-radius: 10px; text-align: center; }
+      .stat strong { font-size: 17px; }
+      .stat span { display: block; margin-top: 3px; font-size: 10px; }
       .tools { padding: 10px var(--panel-gutter); }
       .poi-suggestions { max-height: min(248px, 38dvh); }
       .city-list { min-height: 86px; padding: 6px var(--panel-gutter); }
@@ -514,7 +511,7 @@
         <button class="stat" id="cityOverview" type="button" title="进入全国视图"><strong id="cityTotal">16</strong><span>覆盖城市</span></button>
         <button class="stat" id="favoriteView" type="button" aria-pressed="false"><strong id="favoriteTotal">00</strong><span>收藏城市</span></button>
         <button class="stat" id="hiddenView" type="button" aria-pressed="false"><strong id="hiddenTotal">00</strong><span>隐藏基地</span></button>
-        <a class="stat" id="baseDirectory" href="https://my.feishu.cn/share/base/view/shrcndD2GzgSL4MV61fIPztuDYb" target="_blank" rel="noopener" title="新窗口打开飞书文档"><strong id="baseTotal">33</strong><span>收录基地</span></a>
+        <a class="stat" id="baseDirectory" href="https://my.feishu.cn/share/base/view/shrcndD2GzgSL4MV61fIPztuDYb" target="_blank" rel="noopener" title="新窗口打开飞书文档"><strong id="baseTotal">35</strong><span>收录基地</span></a>
       </div>
     </header>
 
@@ -577,7 +574,7 @@
     // name：页面显示名称，可直接修改，例如将“西湖基地”改成“天目里基地”。
     // 城市项：disposableIncome 控制城市排序；center 是城市汇总点；geoUrl 对应区划数据；color 是城市颜色。
     // focusBases（可选）：点击该城市聚焦时只以列出的基地定视野。未配置则使用全部可见基地。
-    //   例如徐州只聚焦市区两个基地（鼓楼、贾汪），杭州暂时忽略大江东（钱塘）基地。
+    //   例如杭州暂时忽略大江东（钱塘）基地。
     // area：所属区县，用于搜索和区划说明。
     // lng / lat：经度 / 纬度；address：信息窗详细地址。
     const cities = [
@@ -610,16 +607,18 @@
         { id: 'shangqiu-liangyuan', name: '梁园基地', area: '梁园', lng: 115.620602, lat: 34.439969, address: '请输入文本' }
       ]},
       { id: 'wuhan', name: '武汉', disposableIncome: 59732, center: [114.2986, 30.5944], geoUrl: './wuhan.geojson', color: '#7658a5', bases: [
-        { id: 'wuhan-hanyang', name: '武汉基地', area: '汉阳', lng: 114.256798, lat: 30.531055, address: '请输入文本' }
+        { id: 'wuhan-hanyang', name: '武汉基地', area: '汉阳', lng: 114.256798, lat: 30.531055, address: '请输入文本' },
+        { id: 'wuhan-jiangxia', name: '江夏基地', area: '江夏', lng: 114.423839, lat: 30.457385, address: '湖北省武汉市江夏区光谷金融港A7栋' }
       ]},
       { id: 'xian', name: '西安', disposableIncome: 45082, center: [108.9398, 34.3416], geoUrl: './xian.geojson', color: '#bd5c35', bases: [
         { id: 'xian-yanta', name: '雁塔区', area: '雁塔', lng: 108.872867, lat: 34.209048, address: '请输入文本' },
         { id: 'xian-lianhu', name: '莲湖区', area: '莲湖', lng: 108.884328, lat: 34.278724, address: '请输入文本' }
       ]},
-      { id: 'xuzhou', name: '徐州', disposableIncome: 40251, center: [117.1844, 34.2618], geoUrl: './xuzhou.geojson', color: '#19809d', focusBases: ['xuzhou-gulou', 'xuzhou-jiawang'], bases: [
+      { id: 'xuzhou', name: '徐州', disposableIncome: 40251, center: [117.1844, 34.2618], geoUrl: './xuzhou.geojson', color: '#19809d', bases: [
         { id: 'xuzhou-jiawang', name: '东区', area: '贾汪', lng: 117.289725, lat: 34.268725, address: '请输入文本' },
         { id: 'xuzhou-gulou', name: '徐州基地', area: '鼓楼', lng: 117.179488, lat: 34.273124, address: '请输入文本' },
-        { id: 'xuzhou-pizhou', name: '邳州基地', area: '邳州', lng: 117.950381, lat: 34.331705, address: '请输入文本' },
+        { id: 'xuzhou-pizhou', name: '外宣基地', area: '邳州', lng: 117.950381, lat: 34.331705, address: '请输入文本' },
+        { id: 'xuzhou-pizhou-jianshe', name: '邳州基地', area: '邳州', lng: 117.966803, lat: 34.325543, address: '锦源之星酒店(邳州建设南路店)' },
         { id: 'xuzhou-peixian', name: '沛县基地', area: '沛县', lng: 116.921789, lat: 34.731833, address: '请输入文本' }
       ]},
       { id: 'zhengzhou', name: '郑州', disposableIncome: 45994, center: [113.6607, 34.7497], geoUrl: './zhengzhou.geojson', color: '#bf8b18', bases: [
@@ -1306,7 +1305,7 @@
       expandedCity = name;
       renderCityList(query);
       infoWindow?.close();
-      // 部分城市（如徐州）基地分散，可配置 focusBases 只用指定基地定视野，避免视野被远端基地拉飞
+      // 部分城市（如杭州）基地分散，可配置 focusBases 只用指定基地定视野，避免视野被远端基地拉飞
       const focusEntries = city.focusBases?.length
         ? visibleEntries.filter(({ base }) => city.focusBases.includes(base.id))
         : visibleEntries;
