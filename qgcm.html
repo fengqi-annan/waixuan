@@ -1306,6 +1306,8 @@
       expandedCity = name;
       renderCityList(query);
       infoWindow?.close();
+      // 点击城市聚焦时，如果区划边界是关着的就自动打开
+      if (!boundariesVisible) setBoundariesVisible(true);
       // 部分城市（如杭州）基地分散，可配置 focusBases 只用指定基地定视野，避免视野被远端基地拉飞
       const focusEntries = city.focusBases?.length
         ? visibleEntries.filter(({ base }) => city.focusBases.includes(base.id))
