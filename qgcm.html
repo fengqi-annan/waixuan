@@ -511,7 +511,7 @@
         <button class="stat" id="cityOverview" type="button" title="进入全国视图"><strong id="cityTotal">16</strong><span>覆盖城市</span></button>
         <button class="stat" id="favoriteView" type="button" aria-pressed="false"><strong id="favoriteTotal">00</strong><span>收藏城市</span></button>
         <button class="stat" id="hiddenView" type="button" aria-pressed="false"><strong id="hiddenTotal">00</strong><span>隐藏基地</span></button>
-        <a class="stat" id="baseDirectory" href="https://my.feishu.cn/share/base/view/shrcndD2GzgSL4MV61fIPztuDYb" target="_blank" rel="noopener" title="新窗口打开飞书文档"><strong id="baseTotal">35</strong><span>收录基地</span></a>
+        <a class="stat" id="baseDirectory" href="https://my.feishu.cn/share/base/view/shrcndD2GzgSL4MV61fIPztuDYb" target="_blank" rel="noopener" title="新窗口打开飞书文档"><strong id="baseTotal">36</strong><span>收录基地</span></a>
       </div>
     </header>
 
@@ -579,7 +579,8 @@
     // lng / lat：经度 / 纬度；address：信息窗详细地址。
     const cities = [
       { id: 'chengdu', name: '成都', disposableIncome: 53620, center: [104.0665, 30.5723], geoUrl: './chengdu.geojson', color: '#d97732', bases: [
-        { id: 'chengdu-shuangliu', name: '成都基地', area: '双流', lng: 104.071389, lat: 30.503426, address: '请输入文本' }
+        { id: 'chengdu-shuangliu', name: '双流基地', area: '双流', lng: 104.071389, lat: 30.503426, address: '请输入文本' },
+        { id: 'chengdu-wuhou', name: '武侯基地', area: '武侯', lng: 103.993271, lat: 30.625889, address: '簇锦街道万茂大厦4楼3E-7' }
       ]},
       { id: 'hangzhou', name: '杭州', disposableIncome: 76777, center: [120.1552, 30.2729], geoUrl: './hangzhou.geojson', color: '#007f78', focusBases: ['hangzhou-yuhang', 'hangzhou-gongshu', 'hangzhou-binjiang', 'hangzhou-xihu', 'hangzhou-fuyang', 'hangzhou-fanxing'], bases: [
         { id: 'hangzhou-yuhang', name: '杭州基地', area: '余杭', lng: 120.030657, lat: 30.242448, address: '请输入文本' },
@@ -607,7 +608,7 @@
         { id: 'shangqiu-liangyuan', name: '梁园基地', area: '梁园', lng: 115.620602, lat: 34.439969, address: '请输入文本' }
       ]},
       { id: 'wuhan', name: '武汉', disposableIncome: 59732, center: [114.2986, 30.5944], geoUrl: './wuhan.geojson', color: '#7658a5', bases: [
-        { id: 'wuhan-hanyang', name: '武汉基地', area: '汉阳', lng: 114.256798, lat: 30.531055, address: '请输入文本' },
+        { id: 'wuhan-hanyang', name: '汉阳基地', area: '汉阳', lng: 114.256798, lat: 30.531055, address: '请输入文本' },
         { id: 'wuhan-jiangxia', name: '江夏基地', area: '江夏', lng: 114.423839, lat: 30.457385, address: '湖北省武汉市江夏区光谷金融港A7栋' }
       ]},
       { id: 'xian', name: '西安', disposableIncome: 45082, center: [108.9398, 34.3416], geoUrl: './xian.geojson', color: '#bd5c35', bases: [
