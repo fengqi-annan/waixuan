@@ -4,27 +4,27 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="外宣常用网站入口、全国基地地图使用说明与维护工具。">
-  <meta name="theme-color" content="#0d2f2c">
+  <meta name="theme-color" content="#0d2b28">
   <title>外宣指北</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='29' fill='%230d2f2c'/%3E%3Cpath d='M32 8 42 32 32 56 22 32Z' fill='%23eef6f2'/%3E%3Cpath d='M32 8 42 32 32 28 22 32Z' fill='%23e65f3c'/%3E%3Ccircle cx='32' cy='32' r='4' fill='%232fae9f'/%3E%3C/svg%3E">
   <link rel="preload" href="LXGWWenKai-GB2312.woff2" as="font" type="font/woff2" crossorigin>
   <style>
     :root {
-      --ink: #1c2b28;
-      --muted: #68766f;
-      --paper: #f4f2ec;
-      --card: #fffef9;
-      --teal: #0b7d70;
-      --teal-bright: #0c8a80;
-      --teal-deep: #075a55;
-      --teal-dark: #0d2f2c;
-      --mint: #7fd6c1;
-      --accent: #e65f3c;
-      --line: rgba(28, 43, 40, .12);
-      --shadow-sm: 0 6px 18px rgba(20, 42, 38, .05);
-      --shadow-md: 0 18px 46px rgba(20, 42, 38, .09);
+      --ink: #16241f;
+      --muted: #6d7c76;
+      --paper: #f1f3f0;
+      --card: #ffffff;
+      --teal: #0f7a6e;
+      --teal-bright: #15907f;
+      --teal-deep: #0a5b53;
+      --teal-dark: #0d2b28;
+      --mint: #8ed8c5;
+      --line: rgba(22, 36, 31, .11);
+      --shadow-sm: 0 6px 18px rgba(18, 38, 33, .05);
+      --shadow-md: 0 18px 46px rgba(18, 38, 33, .08);
       --font-display: "LXGWWenKai", "Kaiti SC", "STKaiti", "KaiTi", "楷体", serif;
       --font-body: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     }
 
     @font-face {
@@ -41,16 +41,16 @@
       margin: 0;
       color: var(--ink);
       background:
-        radial-gradient(rgba(28, 43, 40, .045) 1px, transparent 1.4px) 0 0 / 26px 26px,
-        radial-gradient(1050px 520px at 88% -12%, rgba(12, 138, 128, .1), transparent 60%),
-        radial-gradient(860px 480px at -10% 24%, rgba(12, 138, 128, .06), transparent 55%),
-        radial-gradient(640px 560px at 52% 116%, rgba(230, 95, 60, .045), transparent 62%),
+        linear-gradient(rgba(22, 36, 31, .042) 1px, transparent 1px) 0 0 / 100% 46px,
+        linear-gradient(90deg, rgba(22, 36, 31, .042) 1px, transparent 1px) 0 0 / 46px 100%,
+        radial-gradient(1100px 560px at 84% -16%, rgba(15, 122, 110, .1), transparent 62%),
+        radial-gradient(820px 460px at -8% 20%, rgba(15, 122, 110, .05), transparent 58%),
         var(--paper);
       font-family: var(--font-body);
       font-size: 15px;
       -webkit-font-smoothing: antialiased;
     }
-    ::selection { background: rgba(12, 138, 128, .2); }
+    ::selection { background: rgba(15, 122, 110, .18); }
     a { color: inherit; }
     a:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
     button, a { -webkit-tap-highlight-color: transparent; }
@@ -60,8 +60,8 @@
       position: sticky;
       top: 0;
       z-index: 20;
-      border-bottom: 1px solid rgba(28, 43, 40, .08);
-      background: rgba(244, 242, 236, .82);
+      border-bottom: 1px solid rgba(22, 36, 31, .09);
+      background: rgba(241, 243, 240, .85);
       backdrop-filter: blur(14px) saturate(1.15);
     }
     .nav {
@@ -82,35 +82,42 @@
       text-decoration: none;
     }
     .brand svg { width: 26px; height: 26px; flex: 0 0 auto; }
-    .nav-links { display: flex; align-items: center; gap: 6px; }
+    .brand-name { display: inline-flex; align-items: center; }
+    .nav-links { display: flex; align-items: center; gap: 8px; }
     .nav-links a {
-      padding: 8px 12px;
+      padding: 9px 16px;
       border-radius: 999px;
-      color: var(--muted);
+      color: #e8f2ed;
+      background: linear-gradient(150deg, #123a34, #0a2723);
+      box-shadow: 0 4px 12px rgba(10, 39, 34, .16);
       font-size: 13px;
       font-weight: 600;
       text-decoration: none;
-      transition: color .16s ease, background .16s ease;
+      transition: color .16s ease, background .16s ease, box-shadow .16s ease, transform .16s ease;
     }
-    .nav-links a:hover { color: var(--ink); background: rgba(255, 255, 255, .8); }
+    .nav-links a:hover {
+      color: #fff;
+      background: linear-gradient(135deg, var(--teal-bright), var(--teal-deep));
+      box-shadow: 0 6px 16px rgba(15, 122, 110, .28);
+      transform: translateY(-1px);
+    }
 
     /* ===== 区块通用 ===== */
-    .section { padding: 32px 0; }
-    .section-head { margin-bottom: 22px; }
+    .section { padding: 34px 0; }
     .section-kicker {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin: 0 0 9px;
+      margin: 0 0 10px;
       color: var(--teal);
       font-family: var(--font-body);
       font-size: 11px;
       font-weight: 700;
-      letter-spacing: .22em;
+      letter-spacing: .26em;
     }
     .section-kicker::before {
       content: "";
-      width: 22px;
+      width: 24px;
       height: 2px;
       border-radius: 2px;
       background: currentColor;
@@ -121,110 +128,154 @@
       font-size: clamp(28px, 4.2vw, 38px);
       font-weight: 700;
       line-height: 1.15;
-      letter-spacing: .01em;
+      letter-spacing: .02em;
       color: var(--ink);
     }
 
     /* ===== 常用网站目录（视觉重心） ===== */
-    #sites { padding-top: 48px; }
-    #sites h2 { font-size: clamp(34px, 5vw, 46px); }
+    #sites { padding-top: 46px; }
+
     .directory-list {
+      position: relative;
+      z-index: 1;
       overflow: hidden;
       border: 1px solid var(--line);
       border-radius: 22px;
       background: var(--card);
       box-shadow: var(--shadow-md);
     }
+    /* 测绘刻度尺 */
+    .directory-list::before {
+      content: "";
+      position: absolute;
+      z-index: 2;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 9px;
+      background:
+        repeating-linear-gradient(90deg, rgba(22, 36, 31, .28) 0 1px, transparent 1px 60px) left top / 100% 9px no-repeat,
+        repeating-linear-gradient(90deg, rgba(22, 36, 31, .2) 0 1px, transparent 1px 12px) left top / 100% 5px no-repeat;
+      opacity: .4;
+      pointer-events: none;
+    }
     .directory-item {
-      min-height: 94px;
+      min-height: 104px;
       display: grid;
-      grid-template-columns: 52px minmax(0, 1fr) auto;
+      grid-template-columns: 54px minmax(0, 1fr) auto;
       align-items: center;
-      gap: 18px;
-      padding: 18px 24px;
+      gap: 20px;
+      padding: 22px 30px 20px;
       border-top: 1px solid var(--line);
       text-decoration: none;
       transition: background .18s ease;
     }
     .directory-item:first-child { border-top: 0; }
-    a.directory-item:hover { background: rgba(12, 138, 128, .055); }
+    a.directory-item:hover { background: rgba(15, 122, 110, .05); }
     .directory-number {
-      width: 42px;
-      height: 42px;
+      width: 44px;
+      height: 44px;
       display: grid;
       place-items: center;
       border-radius: 14px;
       color: #fff;
       background: linear-gradient(135deg, var(--teal-bright), var(--teal-deep));
-      box-shadow: 0 8px 18px rgba(8, 127, 119, .26);
+      box-shadow: 0 8px 18px rgba(15, 122, 110, .26);
       font-size: 15px;
       font-weight: 700;
       letter-spacing: .02em;
       transition: transform .18s ease;
     }
-    a.directory-item:hover .directory-number { transform: scale(1.06); }
+    a.directory-item:hover .directory-number { transform: scale(1.06) rotate(-3deg); }
     .directory-copy { min-width: 0; }
+    .directory-head { display: flex; align-items: baseline; gap: 14px; }
+    .directory-head strong { flex: 0 0 auto; }
+    /* 目录式引导虚线 */
+    .directory-lead {
+      flex: 1 1 auto;
+      min-width: 14px;
+      border-bottom: 1px dashed rgba(22, 36, 31, .2);
+    }
     .directory-copy strong {
       display: block;
       font-family: var(--font-display);
-      font-size: 17px;
-      letter-spacing: .01em;
+      font-size: 19px;
+      letter-spacing: .02em;
+      transition: color .18s ease;
     }
+    a.directory-item:hover .directory-copy strong { color: var(--teal-deep); }
     .directory-copy small {
       display: block;
-      margin-top: 5px;
+      margin-top: 6px;
       overflow: hidden;
       color: var(--muted);
-      font-size: 12px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
       letter-spacing: .02em;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .directory-arrow {
-      width: 36px;
-      height: 36px;
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--line);
-      border-radius: 50%;
-      color: var(--teal);
-      font-size: 14px;
-      opacity: .55;
-      transition: all .18s ease;
-    }
-    a.directory-item:hover .directory-arrow {
-      opacity: 1;
-      color: #fff;
-      border-color: var(--teal);
-      background: var(--teal);
-      transform: translate(2px, -2px);
-    }
-    .directory-item.placeholder { color: var(--muted); background: rgba(28, 43, 40, .025); }
-    .placeholder .directory-number {
-      color: var(--muted);
-      background: transparent;
-      border: 1.5px dashed rgba(104, 118, 111, .45);
-      box-shadow: none;
-    }
-    .placeholder .directory-copy strong { color: var(--muted); font-weight: 400; }
 
-    /* ===== 使用地图（降噪） / 维护工具（深色焦点） ===== */
+    /* 行尾动作按钮 */
+    .directory-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 17px;
+      border: 1px solid rgba(15, 122, 110, .3);
+      border-radius: 999px;
+      color: var(--teal-deep);
+      background: rgba(15, 122, 110, .06);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      white-space: nowrap;
+      transition: color .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+    a.directory-item:hover .directory-action {
+      color: #fff;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--teal-bright), var(--teal-deep));
+      box-shadow: 0 6px 14px rgba(15, 122, 110, .28);
+    }
+
+    /* ===== 使用地图（路线指引） / 维护工具（蓝图舱） ===== */
     .info-grid { display: grid; grid-template-columns: .9fr 1.1fr; align-items: start; gap: 22px; }
     .panel {
+      position: relative;
       padding: 30px;
       border: 1px solid var(--line);
       border-radius: 24px;
-      background: rgba(255, 254, 249, .62);
+      background: rgba(255, 255, 255, .72);
       box-shadow: var(--shadow-sm);
+    }
+    /* 图纸内虚线框 */
+    .panel::after, .contact-card::after {
+      content: "";
+      position: absolute;
+      inset: 12px;
+      border: 1px dashed rgba(22, 36, 31, .12);
+      border-radius: 15px;
+      pointer-events: none;
     }
     .panel h3 {
       margin: 0 0 20px;
       font-family: var(--font-display);
       font-size: 21px;
-      letter-spacing: .02em;
+      letter-spacing: .03em;
     }
-    .steps { display: grid; }
+    .steps { position: relative; display: grid; }
+    /* 虚线行进路线 */
+    .steps::before {
+      content: "";
+      position: absolute;
+      left: 15px;
+      top: 22px;
+      bottom: 22px;
+      border-left: 2px dashed rgba(15, 122, 110, .28);
+    }
     .step {
+      position: relative;
       display: grid;
       grid-template-columns: 34px 1fr;
       gap: 14px;
@@ -234,14 +285,16 @@
     .step:first-child { padding-top: 0; border-top: 0; }
     .step:last-child { padding-bottom: 0; }
     .step b {
+      position: relative;
+      z-index: 1;
       width: 30px;
       height: 30px;
       display: grid;
       place-items: center;
-      border: 1px solid rgba(28, 43, 40, .2);
+      border: 1px solid rgba(15, 122, 110, .38);
       border-radius: 50%;
-      color: var(--muted);
-      background: transparent;
+      color: var(--teal-deep);
+      background: #ffffff;
       font-size: 11px;
       font-weight: 700;
     }
@@ -249,15 +302,17 @@
     .step p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
 
     .panel-dark {
-      position: relative;
       overflow: hidden;
       color: #e8f2ed;
-      border: 1px solid rgba(127, 214, 193, .18);
+      border: 1px solid rgba(142, 216, 197, .18);
       background:
-        radial-gradient(120% 150% at 100% 0%, rgba(47, 174, 159, .22), transparent 55%),
-        linear-gradient(150deg, #113b35, #09261f);
-      box-shadow: 0 24px 56px rgba(9, 38, 34, .3);
+        linear-gradient(rgba(142, 216, 197, .05) 1px, transparent 1px) 0 0 / 100% 28px,
+        linear-gradient(90deg, rgba(142, 216, 197, .05) 1px, transparent 1px) 0 0 / 28px 100%,
+        radial-gradient(120% 150% at 100% 0%, rgba(21, 144, 127, .2), transparent 55%),
+        linear-gradient(150deg, #123a34, #0a2723);
+      box-shadow: 0 24px 56px rgba(10, 39, 34, .28);
     }
+    .panel-dark::after { border-color: rgba(142, 216, 197, .2); }
     .panel-dark .section-kicker { color: var(--mint); }
     .panel-dark h3 { color: #f4faf7; }
 
@@ -278,7 +333,7 @@
       color: var(--teal);
       font-size: 10px;
       font-weight: 700;
-      letter-spacing: .16em;
+      letter-spacing: .18em;
     }
     .resource-copy { min-width: 0; display: grid; gap: 5px; }
     .resource strong { font-size: 14px; }
@@ -286,14 +341,15 @@
       display: block;
       overflow: hidden;
       color: var(--muted);
-      font-size: 11px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
       line-height: 1.4;
       text-overflow: ellipsis;
       white-space: nowrap;
       transition: color .18s ease;
     }
     .panel-dark .resource {
-      border: 1px solid rgba(255, 255, 255, .12);
+      border: 1px solid rgba(255, 255, 255, .13);
       background: rgba(255, 255, 255, .055);
     }
     .panel-dark .resource small { color: var(--mint); }
@@ -319,10 +375,13 @@
       border-radius: 28px;
       color: #eef6f2;
       background:
-        radial-gradient(90% 130% at 100% 0%, rgba(47, 174, 159, .18), transparent 55%),
-        linear-gradient(135deg, #0f3833, #09261f);
-      box-shadow: 0 22px 56px rgba(10, 46, 42, .35);
+        linear-gradient(rgba(142, 216, 197, .042) 1px, transparent 1px) 0 0 / 100% 32px,
+        linear-gradient(90deg, rgba(142, 216, 197, .042) 1px, transparent 1px) 0 0 / 32px 100%,
+        radial-gradient(90% 130% at 100% 0%, rgba(21, 144, 127, .17), transparent 55%),
+        linear-gradient(150deg, #123a34, #0a2723);
+      box-shadow: 0 22px 56px rgba(10, 39, 34, .3);
     }
+    .contact-card::after { inset: 14px; border-radius: 18px; border-color: rgba(255, 255, 255, .15); }
     .contact-card p { max-width: 590px; color: rgba(255, 255, 255, .7); line-height: 1.75; }
     .contact-card .section-kicker { color: var(--mint); }
     .contact-card h2 { color: #f4faf7; }
@@ -363,10 +422,12 @@
       .nav-links a:not(.keep) { display: none; }
       .section { padding: 26px 0; }
       #sites { padding-top: 34px; }
-      .directory-item { min-height: 80px; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; padding: 14px 16px; }
-      .directory-number { width: 36px; height: 36px; border-radius: 12px; font-size: 13px; }
-      .directory-arrow { width: 32px; height: 32px; }
+      .directory-item { min-height: 88px; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 12px; padding: 16px 16px 14px; }
+      .directory-action { padding: 7px 11px; font-size: 11px; }
+      .directory-lead { display: none; }
+      .directory-number { width: 38px; height: 38px; border-radius: 12px; font-size: 13px; }
       .panel { padding: 22px; border-radius: 20px; }
+      .panel::after { inset: 9px; }
       .resource-list { grid-template-columns: 1fr; }
       .resource { min-height: 86px; }
       .contact-card { padding: 26px 20px; border-radius: 22px; }
@@ -386,7 +447,7 @@
     <nav class="nav wrap" aria-label="页面导航">
       <a class="brand" href="#top">
         <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="#0d2f2c"/><path d="M32 8 42 32 32 56 22 32Z" fill="#eef6f2"/><path d="M32 8 42 32 32 28 22 32Z" fill="#e65f3c"/><circle cx="32" cy="32" r="4" fill="#2fae9f"/></svg>
-        <span>外宣指北</span>
+        <span class="brand-name">外宣指北</span>
       </a>
       <div class="nav-links">
         <a href="#sites">常用网站</a>
@@ -399,17 +460,17 @@
 
   <main id="top">
     <section class="section wrap" id="sites">
-      <div class="section-head"><p class="section-kicker">DIRECTORY</p><h2>常用网站</h2></div>
       <div class="directory-list">
         <a class="directory-item" href="https://waixuan.pages.dev/qgcm" target="_blank" rel="noopener">
           <span class="directory-number">01</span>
-          <span class="directory-copy"><strong>全国基地分布</strong><small>waixuan.pages.dev/qgcm</small></span>
-          <span class="directory-arrow" aria-hidden="true">↗</span>
+          <span class="directory-copy"><span class="directory-head"><strong>全国基地分布</strong><span class="directory-lead" aria-hidden="true"></span></span><small>waixuan.pages.dev/qgcm</small></span>
+          <span class="directory-action" aria-hidden="true">打开 ↗</span>
         </a>
-        <div class="directory-item placeholder" aria-label="预留网站位置">
+        <a class="directory-item" href="https://waixuan.pages.dev/wx-fill.user.js" target="_blank" rel="noopener">
           <span class="directory-number">02</span>
-          <span class="directory-copy"><strong>……</strong><small>预留位置</small></span>
-        </div>
+          <span class="directory-copy"><span class="directory-head"><strong>邀约填表助手</strong><span class="directory-lead" aria-hidden="true"></span></span><small>油猴脚本 · waixuan.pages.dev/wx-fill.user.js</small></span>
+          <span class="directory-action" aria-hidden="true">安装 ↗</span>
+        </a>
       </div>
     </section>
 
