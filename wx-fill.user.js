@@ -1,10 +1,9 @@
 // ==UserScript==
 // @name         外宣邀约 · 填表助手
 // @namespace    wx-invite-helper
-// @version      1.4.0
+// @version      1.4.1
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」时自动填好固定值，并按网站的空档自动挑好预约时间（最后「提交」还是你自己点）
-// @author       annan
 // @match        http://wx.qgxkt.doupeixun.cn/*
 // @grant        none
 // @run-at       document-idle
@@ -23,7 +22,7 @@
 	var MODE = "public";                  // 'local' | 'public'
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的地址
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
-	var VERSION = '1.4.0';
+	var VERSION = '1.4.1';
 
 	/* ---- 下面这些函数是注入进来的（04-invite/waixuan.mjs 里那几个真函数，别在这儿改） ---- */
 	function parseRule(text) {
@@ -203,11 +202,24 @@ function fillWhenReady(onReady, opts) {
 		var doc = formDoc();
 		if (doc) { onReady(doc); return; }
 		if (!opened && options.form) {
+			var openCode = 'try{win_pop_iframe(' + JSON.stringify('新增') + ',' + JSON.stringify(String(options.form)) + ','
+				+ JSON.stringify('75%') + ',' + JSON.stringify('100%') + ',' + JSON.stringify('') + ');}'
+				+ 'catch(e){console.error("[邀约助手] 页面里也打不开「新增」：",e);}';
 			try {
-				if (typeof win_pop_iframe === 'function') {
-					win_pop_iframe('新增', options.form, '75%', '100%', '');
+				// 页面自己的 window 上先找（浏览器里页面全局就是 window 的属性），
+				// 找不到再退回脚本作用域里的同名全局（有的宿主只把全局放在作用域里）。
+				var pw = pageWindow();
+				var opener = null;
+				if (pw && typeof pw.win_pop_iframe === 'function') opener = pw.win_pop_iframe;
+				else if (typeof win_pop_iframe === 'function') opener = win_pop_iframe;
+				if (opener) {
+					opener('新增', options.form, '75%', '100%', '');
 					opened = true;
 					if (typeof console !== 'undefined') console.log('正在打开「新增」…');
+				} else if (runInPage(openCode)) {
+					// 沙箱里读不到 win_pop_iframe —— 借页面自己的手打开
+					opened = true;
+					if (typeof console !== 'undefined') console.log('正在打开「新增」…（借页面自己的手）');
 				}
 			} catch (error) { /* 打不开就等下一次 */ }
 		}
@@ -241,6 +253,27 @@ function dupUrl(url, n) {
 	clean = clean.replace(/([?&])dsh=[^&]*(&|$)/, function (all, head, tail) { return tail ? head : ''; }).replace(/[?&]$/, '');
 	var sep = clean.indexOf('?') >= 0 ? '&' : '?';
 	return clean + sep + 'dsh=' + String(n == null ? 2 : n);
+}
+
+function pageWindow() {
+	try {
+		if (typeof unsafeWindow !== 'undefined' && unsafeWindow) return unsafeWindow;
+	} catch (error) { /* 没有就算了 */ }
+	return window;
+}
+
+function runInPage(code) {
+	try {
+		var host = document.head || document.body || document.documentElement;
+		if (!host) return false;
+		var tag = document.createElement('script');
+		tag.textContent = String(code || '');
+		host.appendChild(tag);
+		tag.remove();
+		return true;
+	} catch (error) {
+		return false;
+	}
 }
 
 	/* ---------------------------------------------------------------- 小工具 */
@@ -342,35 +375,36 @@ function dupUrl(url, n) {
 	function labelOf(n) { return '页签' + (n < 10 ? '0' + String(n) : String(n)); }
 
 	function openAsTab(url, title) {
-		// 首选网站自己的入口：iframe、页签头、菜单高亮它都会安排好
+		// ① 页面全局能直接读到（Chrome / Edge 的常见情形）
 		try {
-			var L = window.layui;
-			if (L && L.use) {
-				L.use('index', function () {
-					var mod = window.layui && window.layui.index;
+			var w = pageWindow();
+			if (w && w.layui && w.layui.use) {
+				w.layui.use('index', function () {
+					var mod = w.layui && w.layui.index;
 					if (mod && mod.openTabsPage) mod.openTabsPage(url, title);
 				});
 				return true;
 			}
-		} catch (error) { /* 落到退路 */ }
-		// 退路：照它 lib/index.js 的做法自己拼一个。用原生 DOM 搭，不拼 HTML 字符串。
-		try {
-			var bodyNode = document.getElementById('LAY_app_body');
-			if (bodyNode && window.layui && window.layui.element) {
-				var wrap = document.createElement('div');
-				wrap.className = 'layadmin-tabsbody-item layui-show';
-				var frameNode = document.createElement('iframe');
-				frameNode.setAttribute('frameborder', '0');
-				frameNode.className = 'layadmin-iframe';
-				frameNode.src = url;
-				wrap.appendChild(frameNode);
-				bodyNode.appendChild(wrap);
-				window.layui.element.tabAdd('layadmin-layout-tabs', { title: '<span>' + title + '</span>', id: url });
-				window.layui.element.tabChange('layadmin-layout-tabs', url);
-				return true;
-			}
-		} catch (error) { /* 两条路都断了就只好认了 */ }
-		return false;
+		} catch (error) { /* 落到 ② */ }
+		// ② 读不到（火狐的油猴把脚本关在沙箱里就是这样）→ 塞一小段脚本，让**页面自己**去开。
+		//    见 waixuan.mjs 里 runInPage() 的注释：这个网站没有 CSP，塞得进去。
+		var args = JSON.stringify(url) + ',' + JSON.stringify(title);
+		var viaPage = '(function(){try{layui.use("index",function(){layui.index.openTabsPage(' + args
+			+ ');});}catch(e){console.error("[邀约助手] 页面里也开不出页签：",e);}})();';
+		if (runInPage(viaPage)) return true;
+		// ③ 最后一条退路：照它 lib/index.js 的做法自己拼（同样得在页面里跑）
+		var mine = '(function(){try{'
+			+ 'var b=document.getElementById("LAY_app_body");'
+			+ 'if(!b||!window.layui||!layui.element)throw new Error("没有页签容器或 layui");'
+			+ 'var d=document.createElement("div");d.className="layadmin-tabsbody-item layui-show";'
+			+ 'var f=document.createElement("iframe");f.setAttribute("frameborder","0");'
+			+ 'f.className="layadmin-iframe";f.src=' + JSON.stringify(url) + ';'
+			+ 'd.appendChild(f);b.appendChild(d);'
+			+ 'layui.element.tabAdd("layadmin-layout-tabs",{title:"<span>"+' + JSON.stringify(title) + '+"</span>",id:'
+			+ JSON.stringify(url) + '});'
+			+ 'layui.element.tabChange("layadmin-layout-tabs",' + JSON.stringify(url) + ');'
+			+ '}catch(e){console.error("[邀约助手] 自己拼页签也失败了：",e);}})();';
+		return runInPage(mine);
 	}
 
 	function duplicate(node) {
