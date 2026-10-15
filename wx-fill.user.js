@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 填表助手
 // @namespace    wx-invite-helper
-// @version      1.4.1
+// @version      1.4.2
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」时自动填好固定值，并按网站的空档自动挑好预约时间（最后「提交」还是你自己点）
 // @match        http://wx.qgxkt.doupeixun.cn/*
@@ -22,7 +22,7 @@
 	var MODE = "public";                  // 'local' | 'public'
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的地址
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
-	var VERSION = '1.4.1';
+	var VERSION = '1.4.2';
 
 	/* ---- 下面这些函数是注入进来的（04-invite/waixuan.mjs 里那几个真函数，别在这儿改） ---- */
 	function parseRule(text) {
@@ -150,6 +150,24 @@ function fillForm(doc, data, names) {
 	}
 	try { doc.defaultView.layui.form.render(); } catch (error) { /* 画面没跟着变不要紧，提交读的是原生控件的值 */ }
 	return { written: written, missing: missing };
+}
+
+function fillIfEmpty(doc, values, names) {
+	var want = values || {};
+	var todo = {};
+	Object.keys(want).forEach(function (name) {
+		var nodes = doc.getElementsByName(name);
+		if (!nodes || !nodes.length) return;
+		if (nodes[0].type === 'radio') {
+			var checked = false;
+			for (var i = 0; i < nodes.length; i += 1) { if (nodes[i].checked) checked = true; }
+			if (!checked) todo[name] = want[name];
+			return;
+		}
+		if (!String(nodes[0].value == null ? '' : nodes[0].value).trim()) todo[name] = want[name];
+	});
+	if (!Object.keys(todo).length) return { written: 0, missing: [] };
+	return fillForm(doc, todo, names || {});
 }
 
 function slotFromRules(ruleToday, ruleTomorrow, now) {
@@ -477,6 +495,40 @@ function runInPage(code) {
 		console.log('[邀约助手] 带出上次的基地/社区：' + (last.base || '') + ' / ' + (last.name || ''));
 	}
 
+	/** 页面自己的 layui 要好几秒才就绪；等它一就绪，再 render 一次，把界面刷成实际的值。 */
+	function renderOnce(doc, state) {
+		if (state.rendered) return;
+		try {
+			if (doc.defaultView.layui && doc.defaultView.layui.form) {
+				doc.defaultView.layui.form.render();
+				state.rendered = true;
+			}
+		} catch (error) { /* 还没就绪，下一次再试 */ }
+	}
+
+	/**
+	 * 盯着这张表单（两种模式共用）：
+	 *   · 每隔 800ms 把**空着的固定值**补上（页面自己初始化时会把我们填的冲掉）；
+	 *   · 顺便等 layui 就绪后 render 一次，让界面显示的就是实际的值。
+	 * 超过两分钟就停 —— 别在人家页面上一直转。
+	 */
+	function watchForm(doc, keep, names) {
+		var state = { rendered: false };
+		var ticks = 0;
+		var id = window.setInterval(function () {
+			ticks += 1;
+			if (ticks > 150) { window.clearInterval(id); return; }
+			// 表单不在了（用户把「新增」关了）→ 收工，别在人家页面上一直转
+			if (!doc.querySelector || !doc.querySelector('[name=yy_interview_date]')) { window.clearInterval(id); return; }
+			renderOnce(doc, state);
+			var again = fillIfEmpty(doc, keep || {}, names || {});
+			if (again && again.written) {
+				console.log('[邀约助手] 页面把它冲掉了，又补回 ' + again.written + ' 栏');
+			}
+		}, 800);
+		return id;
+	}
+
 	/**
 	 * 盯着基地/社区：两个都选好了就去问最近的空档，把时间填上。
 	 *
@@ -517,14 +569,19 @@ function runInPage(code) {
 
 	function prefill(doc) {
 		var now = today();
-		fillForm(doc, {
+		var want = {
 			c_date: now,
 			zp_channel: FIXED.channel,
 			post: FIXED.post,
 			gender: FIXED.gender,
-		}, {});
+		};
+		var stats = fillForm(doc, want, {});
 		applyRemembered(doc);
-		console.log('[邀约助手] 固定值已填：渠道=' + FIXED.channel + '（外宣BOSS直聘）岗位=' + FIXED.post + ' 性别=' + FIXED.gender + ' 登记日期=' + now);
+		console.log('[邀约助手] 固定值写了 ' + stats.written + ' 栏（渠道=' + FIXED.channel + ' 岗位=' + FIXED.post
+			+ ' 性别=' + FIXED.gender + ' 登记日期=' + now + '）；这一页上没有的：', stats.missing);
+		// 页面自己的初始化可能会把上面这些又冲掉 → 盯着补（只补空的）
+		watchForm(doc, want, {});
+		// 再盯着基地/社区和时间
 		watchSlot(doc);
 	}
 
