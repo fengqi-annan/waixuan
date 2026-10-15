@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 填表助手
 // @namespace    wx-invite-helper
-// @version      1.4.2
+// @version      1.4.3
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」时自动填好固定值，并按网站的空档自动挑好预约时间（最后「提交」还是你自己点）
 // @match        http://wx.qgxkt.doupeixun.cn/*
@@ -22,7 +22,7 @@
 	var MODE = "public";                  // 'local' | 'public'
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的地址
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
-	var VERSION = '1.4.2';
+	var VERSION = '1.4.3';
 
 	/* ---- 下面这些函数是注入进来的（04-invite/waixuan.mjs 里那几个真函数，别在这儿改） ---- */
 	function parseRule(text) {
@@ -392,8 +392,8 @@ function runInPage(code) {
 
 	function labelOf(n) { return '页签' + (n < 10 ? '0' + String(n) : String(n)); }
 
-	function openAsTab(url, title) {
-		// ① 页面全局能直接读到（Chrome / Edge 的常见情形）
+	/** ① 直接调网站自己的入口（页面上下文里能读到 layui 时） */
+	function openByLayui(url, title) {
 		try {
 			var w = pageWindow();
 			if (w && w.layui && w.layui.use) {
@@ -403,15 +403,20 @@ function runInPage(code) {
 				});
 				return true;
 			}
-		} catch (error) { /* 落到 ② */ }
-		// ② 读不到（火狐的油猴把脚本关在沙箱里就是这样）→ 塞一小段脚本，让**页面自己**去开。
-		//    见 waixuan.mjs 里 runInPage() 的注释：这个网站没有 CSP，塞得进去。
-		var args = JSON.stringify(url) + ',' + JSON.stringify(title);
-		var viaPage = '(function(){try{layui.use("index",function(){layui.index.openTabsPage(' + args
-			+ ');});}catch(e){console.error("[邀约助手] 页面里也开不出页签：",e);}})();';
-		if (runInPage(viaPage)) return true;
-		// ③ 最后一条退路：照它 lib/index.js 的做法自己拼（同样得在页面里跑）
-		var mine = '(function(){try{'
+		} catch (error) { /* 交给下面两条 */ }
+		return false;
+	}
+
+	/** ② 借页面的手调（火狐的油猴沙箱里读不到 layui，只能这么办） */
+	function openViaPage(url, title) {
+		return runInPage('(function(){try{layui.use("index",function(){layui.index.openTabsPage('
+			+ JSON.stringify(url) + ',' + JSON.stringify(title) + ');});}'
+			+ 'catch(e){console.error("[邀约助手] 页面里也开不出页签：",e);}})();');
+	}
+
+	/** ③ 最后一条退路：照它 lib/index.js 的做法自己拼一个页签（同样在页面里跑） */
+	function openManually(url, title) {
+		return runInPage('(function(){try{'
 			+ 'var b=document.getElementById("LAY_app_body");'
 			+ 'if(!b||!window.layui||!layui.element)throw new Error("没有页签容器或 layui");'
 			+ 'var d=document.createElement("div");d.className="layadmin-tabsbody-item layui-show";'
@@ -421,8 +426,43 @@ function runInPage(code) {
 			+ 'layui.element.tabAdd("layadmin-layout-tabs",{title:"<span>"+' + JSON.stringify(title) + '+"</span>",id:'
 			+ JSON.stringify(url) + '});'
 			+ 'layui.element.tabChange("layadmin-layout-tabs",' + JSON.stringify(url) + ');'
-			+ '}catch(e){console.error("[邀约助手] 自己拼页签也失败了：",e);}})();';
-		return runInPage(mine);
+			+ '}catch(e){console.error("[邀约助手] 自己拼页签也失败了：",e);}})();');
+	}
+
+	function openAsTab(url, title) {
+		if (openByLayui(url, title)) return true;
+		if (openViaPage(url, title)) return true;
+		return openManually(url, title);
+	}
+
+	function tabCount() {
+		var header = tabHeader();
+		return header ? header.querySelectorAll('li').length : 0;
+	}
+
+	/**
+	 * **核对页签到底开出来没有**（2026-10-15 加的）。
+	 *
+	 * 为什么不能信 `openTabsPage` 的返回值：那个模块慢/没就绪的时候会**默默什么都不做**
+	 * （工位那台就是这样：点了没反应，也没报错）。所以这里回头看页签数有没有变多；
+	 * 没变多就自己拼一个，再不行就**如实说"没开出来"**，别骗人说"又开了一个"。
+	 */
+	function verifyOpened(url, title, before, round) {
+		window.setTimeout(function () {
+			if (tabCount() > before) {
+				console.log('[邀约助手] 页签开出来了：' + title + '（' + url + '）');
+				toast('又开了一个：' + title + '（筛选条件各自设）');
+				return;
+			}
+			if (round === 0) {
+				console.log('[邀约助手] 网站的页签模块没反应，换成自己拼一个：' + url);
+				openManually(url, title);
+				verifyOpened(url, title, before, 1);
+				return;
+			}
+			console.log('[邀约助手] 页签没开出来。打一行 __dshWxDiag() 看现场。');
+			toast('页签没开出来（网站的页签模块没响应）—— 先用浏览器的多标签页顶着吧', true);
+		}, round === 0 ? 700 : 1000);
 	}
 
 	function duplicate(node) {
@@ -432,8 +472,9 @@ function runInPage(code) {
 		var n = nextLabel(base);
 		var url = dupUrl(tab.url, n);
 		var title = labelOf(n);
-		if (openAsTab(url, title)) toast('又开了一个：' + title + '（筛选条件各自设）');
-		else toast('开不出来：页签模块没找到', true);
+		var before = tabCount();
+		openAsTab(url, title);
+		verifyOpened(url, title, before, 0);   // 回头看它到底开出来没有
 	}
 
 	function mountTabs() {
@@ -576,6 +617,7 @@ function runInPage(code) {
 			gender: FIXED.gender,
 		};
 		var stats = fillForm(doc, want, {});
+		lastStats = stats;
 		applyRemembered(doc);
 		console.log('[邀约助手] 固定值写了 ' + stats.written + ' 栏（渠道=' + FIXED.channel + ' 岗位=' + FIXED.post
 			+ ' 性别=' + FIXED.gender + ' 登记日期=' + now + '）；这一页上没有的：', stats.missing);
@@ -597,9 +639,36 @@ function runInPage(code) {
 		}, 800);
 	}
 
+	/**
+	 * 现场诊断：`__dshWxDiag()` —— 一条命令把关键状态打到控制台，方便截图发回来。
+	 * （用户 2026-10-15 的来回里，最费时间的就是"到底是什么环境对不上"。）
+	 */
+	var lastStats = null;
+
+	function diag() {
+		var lines = [];
+		lines.push('[邀约助手] v' + VERSION + '（' + MODE + '）');
+		lines.push('页签条：' + (tabStrip() ? '有' : '没有') + '　页签数：' + tabCount()
+			+ '　「＋」：' + (tabStrip() && tabStrip().querySelector('.dsh-dup-tab') ? '已挂上' : '没挂上'));
+		var w = pageWindow();
+		lines.push('layui：' + (w.layui ? '有' : '没有')
+			+ '　layui.index：' + (w.layui && w.layui.index ? '有' : '没有')
+			+ '　win_pop_iframe：' + (typeof w.win_pop_iframe === 'function' ? '有' : '没有'));
+		var doc = formDoc();
+		lines.push('「新增」表单：' + (doc ? (doc === document ? '在顶层' : '在 iframe 里') : '没找到'));
+		if (lastStats) lines.push('最后一次填的结果：写了 ' + lastStats.written + ' 栏，这一页上没有的：' + JSON.stringify(lastStats.missing));
+		try {
+			lines.push('记住的上次基地/社区：' + String(window.localStorage.getItem(LAST_KEY) || '（空）'));
+		} catch (error) { lines.push('记住的上次基地/社区：（读不到 localStorage）'); }
+		var text = lines.join('\n');
+		console.log(text);
+		return text;
+	}
+
 	function armPublic() {
 		waitForForm();
-		console.log('[邀约助手] 就绪（v' + VERSION + '）：点「新增」时会自动填好固定值、并按最近空档挑好时间');
+		console.log('[邀约助手] 就绪（v' + VERSION + '）：点「新增」时会自动填好固定值、并按最近空档挑好时间。'
+			+ '出问题就在控制台打 __dshWxDiag() 看现场。');
 	}
 
 	/* ---------------------------------------------------------------- 接线 */
@@ -607,6 +676,10 @@ function runInPage(code) {
 	function mountTabsSafe() {
 		try { mountTabs(); } catch (error) { console.log('[邀约助手] 页签按钮没挂上：' + error); }
 	}
+
+	// 把诊断挂到**页面**的 window 上：用户在控制台里打 __dshWxDiag() 才有用
+	// （挂在自己的 window 上，页面控制台是看不见的）
+	try { pageWindow().__dshWxDiag = diag; } catch (error) { /* 挂不上就算了 */ }
 
 	if (MODE === 'public') armPublic();
 	
