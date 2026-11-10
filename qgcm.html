@@ -378,10 +378,10 @@
       cursor: pointer;
     }
     .city-summary b { min-width: 20px; padding: 2px 6px; text-align: center; border-radius: 999px; background: var(--city-color); color: #fff; font-size: 10px; }
-    .info { min-width: 180px; padding: 4px 2px; color: var(--ink); }
+    .info { min-width: 180px; max-width: 272px; padding: 4px 2px; color: var(--ink); }
     .info .city { color: var(--teal); font-size: 10px; font-weight: 800; letter-spacing: .1em; }
     .info h3 { margin: 5px 0 8px; font-size: 16px; }
-    .info p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+    .info p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
     .loading {
       position: fixed;
       z-index: 30;
@@ -1374,12 +1374,21 @@
       else map.setZoomAndCenter(5, [112.8, 33.2], true);
     }
 
+    // 详细地址里用「；」分隔的流程说明（例如「先到鼓楼基地面试」）另起一行，避免信息窗被撑成一长条。
+    function formatBaseAddress(value) {
+      const text = String(value ?? '').trim();
+      if (!text) return '请输入文本';
+      const parts = text.split(/[；;]\s*/).map(part => part.trim()).filter(Boolean);
+      if (parts.length <= 1) return escapeHTML(text);
+      return escapeHTML(parts[0]) + parts.slice(1).map(part => `<br>备注：${escapeHTML(part)}`).join('');
+    }
+
     function openBaseInfo(city, base, marker) {
       infoWindow.setContent(`
         <div class="info">
-          <div class="city">所属城市 · ${city.name}</div>
-          <h3>${base.name}</h3>
-          <p>所在区县/片区：${base.area}<br>经度：${base.lng}<br>纬度：${base.lat}<br>基地详细地址：${base.address || '请输入文本'}</p>
+          <div class="city">所属城市 · ${escapeHTML(city.name)}</div>
+          <h3>${escapeHTML(base.name)}</h3>
+          <p>所在区县/片区：${escapeHTML(base.area)}<br>经度：${base.lng}<br>纬度：${base.lat}<br>基地详细地址：${formatBaseAddress(base.address)}</p>
         </div>
       `);
       activeInfoKind = 'base';
