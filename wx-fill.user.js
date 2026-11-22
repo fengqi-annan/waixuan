@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.2.14
+// @version      2.2.15
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.2.14 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.2.15 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.2.14';
+	var VERSION = '2.2.15';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -2387,6 +2387,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		var style = document.createElement('style');
 		style.id = 'dsh-home-styles';
 		style.textContent = ''
+			+ '.layadmin-tabsbody-item[data-dsh-home="1"]{overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch}'
 			+ '#dsh-home-root{display:flex;flex-direction:column;padding:18px 20px 16px;background:#f4f6f9;min-height:100%;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:#1f2937}'
 			+ '#dsh-home-root .dsh-hd{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding:14px 18px;background:#fff;border-radius:10px;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,.04)}'
 			+ '#dsh-home-root .dsh-hd-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}'
@@ -2482,9 +2483,12 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 			var modalMask = byId(document, 'dsh-home-modal');
 			var bottomPad = modalMask ? (Math.round(winH * 0.04) + 20) : 22;
 			var availH = Math.round(winH - box.top - bottomPad);
-			h = availH > 150 ? availH : Math.max(h, 150);
+			h = availH > 170 ? availH : Math.max(h, 170);
 		}
 		try { if (canvas.style) canvas.style.height = h + 'px'; } catch (error) { /* ignore */ }
+		// 高度撑开后若右侧出现纵向滚动条，重新量一次可用宽度以免最右侧圆点被挤压溢出
+		var boxAfter = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null;
+		if (boxAfter && boxAfter.width >= 60) w = Math.round(boxAfter.width);
 		var pad = 4;
 		var innerW = w - pad * 2;
 		var innerH = h - pad * 2;
@@ -3054,6 +3058,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		var pane = nativeIdx >= 0 ? items[nativeIdx] : null;
 		if (pane) {
 			pane.setAttribute('data-dsh-home', '1');
+			if (pane.style) { pane.style.overflowY = 'auto'; pane.style.overflowX = 'hidden'; }
 			renderDashboard(pane);
 			if (String(nativeLi.className || '').indexOf('layui-this') >= 0) {
 				ensureHomeDataLoaded();
@@ -3067,6 +3072,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 				var curItems = bodyItemsOf(appBody);
 				if (idx >= 0 && curItems[idx]) {
 					curItems[idx].setAttribute('data-dsh-home', '1');
+					if (curItems[idx].style) { curItems[idx].style.overflowY = 'auto'; curItems[idx].style.overflowX = 'hidden'; }
 					renderDashboard(curItems[idx]);
 				}
 			}
@@ -3089,7 +3095,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		mask.style.cssText = 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:99997;background:rgba(15,23,42,.48);'
 			+ 'display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;';
 		var box = document.createElement('div');
-		box.style.cssText = 'width:min(1220px,95vw);max-height:92vh;overflow:auto;background:#f4f6f9;border-radius:12px;'
+		box.style.cssText = 'width:min(1220px,95vw);max-height:92vh;overflow-y:auto;overflow-x:hidden;background:#f4f6f9;border-radius:12px;'
 			+ 'position:relative;box-shadow:0 12px 38px rgba(0,0,0,.28);';
 		var pane = document.createElement('div');
 		mask.addEventListener('click', function (event) { if (event && event.target === mask) mask.remove(); });
