@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.2.13
+// @version      2.2.14
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.2.13 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.2.14 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,9 +23,15 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.2.13';
-	// 在页面原生的 window.fetch 被钩子改写前先保留一份绑定引用，避免批量提交时被自身拦截卡死
-	var nativeFetch = typeof window !== 'undefined' && typeof window.fetch === 'function' ? window.fetch.bind(window) : null;
+	var VERSION = '2.2.14';
+	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
+	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
+	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
+	var isXraySandbox = (typeof cloneInto === 'function')
+		|| Boolean(typeof window !== 'undefined' && window && window.wrappedJSObject);
+	var nativeFetch = (!isXraySandbox && typeof window !== 'undefined' && typeof window.fetch === 'function')
+		? window.fetch.bind(window)
+		: (typeof fetch === 'function' ? fetch : null);
 
 	/* ---- 下面这些函数是注入进来的（wx-userscript.core.mjs 里那几个真函数，别在这儿改） ---- */
 	function parseRule(text) {
@@ -916,6 +922,101 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 	function isoOf(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
 	function today() { return isoOf(new Date()); }
 
+	function siteOrigin() {
+		try {
+			if (window.location && window.location.origin && window.location.origin !== 'null') return String(window.location.origin);
+		} catch (e) { /* ignore */ }
+		try {
+			if (window.location && window.location.host) {
+				return String(window.location.protocol || 'http:') + '//' + String(window.location.host);
+			}
+		} catch (e) { /* ignore */ }
+		try {
+			var href = String((window.location && window.location.href) || (typeof document !== 'undefined' && document.URL) || '');
+			var m = /^(https?:\/\/[^/?#]+)/i.exec(href);
+			if (m) return m[1];
+		} catch (e) { /* ignore */ }
+		return typeof WX_BASE === 'string' && WX_BASE ? WX_BASE : 'http://wx.qgxkt.doupeixun.cn';
+	}
+
+	/** 把站点相对路径统一补全为绝对 URL，避免 Firefox / Greasemonkey 沙箱 `fetch('/...')` 报 is not a valid URL。 */
+	function toAbsUrl(u) {
+		var s = String(u == null ? '' : u);
+		if (!s || /^https?:\/\//i.test(s)) return s;
+		var base = siteOrigin().replace(/\/+$/, '');
+		return base + (s.charAt(0) === '/' ? s : '/' + s);
+	}
+
+	function xhrFallback(absUrl, opts) {
+		if (typeof XMLHttpRequest !== 'function') {
+			return Promise.reject(new Error('当前环境既不支持 fetch 也不支持 XMLHttpRequest'));
+		}
+		var o = opts || {};
+		var method = String(o.method || 'GET').toUpperCase();
+		return new Promise(function (resolve, reject) {
+			try {
+				var xhr = new XMLHttpRequest();
+				xhr.open(method, absUrl, true);
+				if (o.credentials === 'include' || o.credentials === 'same-origin') {
+					xhr.withCredentials = true;
+				}
+				var hdrs = o.headers || {};
+				Object.keys(hdrs).forEach(function (k) {
+					try { xhr.setRequestHeader(k, String(hdrs[k])); } catch (e) { /* ignore */ }
+				});
+				xhr.onload = function () {
+					var bodyText = String(xhr.responseText || '');
+					resolve({
+						ok: xhr.status >= 200 && xhr.status < 300,
+						status: xhr.status,
+						text: function () { return Promise.resolve(bodyText); },
+						json: function () {
+							return Promise.resolve().then(function () { return JSON.parse(bodyText); });
+						},
+					});
+				};
+				xhr.onerror = function () { reject(new Error('网络请求失败')); };
+				xhr.ontimeout = function () { reject(new Error('请求超时')); };
+				xhr.send(o.body == null ? null : o.body);
+			} catch (err) {
+				reject(err);
+			}
+		});
+	}
+
+	/** 兼容 Edge/Chrome Tampermonkey（同世界原生 fetch）与 Firefox Greasemonkey（Xray 沙箱绝对 URL fetch / XHR 回退）。 */
+	function siteFetch(url, opts) {
+		var abs = toAbsUrl(url);
+		var f = nativeFetch || (typeof fetch === 'function' ? fetch : null);
+		if (!f) return xhrFallback(abs, opts);
+		var shouldFallbackXhr = function (err) {
+			if (typeof XMLHttpRequest !== 'function') return false;
+			var msg = String(err && err.message || err || '');
+			return (err && err.name === 'TypeError') || /valid URL|Permission denied|Xray|network/i.test(msg);
+		};
+		try {
+			return Promise.resolve(f(abs, opts)).catch(function (err) {
+				if (typeof fetch === 'function' && f !== fetch) {
+					return Promise.resolve(fetch(abs, opts)).catch(function (err2) {
+						if (shouldFallbackXhr(err2)) return xhrFallback(abs, opts);
+						throw err2;
+					});
+				}
+				if (shouldFallbackXhr(err)) return xhrFallback(abs, opts);
+				throw err;
+			});
+		} catch (err) {
+			if (typeof fetch === 'function' && f !== fetch) {
+				try { return Promise.resolve(fetch(abs, opts)); } catch (err2) {
+					if (shouldFallbackXhr(err2)) return xhrFallback(abs, opts);
+					return Promise.reject(err2);
+				}
+			}
+			if (shouldFallbackXhr(err)) return xhrFallback(abs, opts);
+			return Promise.reject(err);
+		}
+	}
+
 	/** 优先取同源顶层 document（用于提示条和粘贴弹窗居中展示），拿不到就退回当前 document。 */
 	function topDoc() {
 		try {
@@ -940,7 +1041,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 
 	/** 问网站：某个社区某天每个时段已经约了几个人（规则也在这段文字里）。 */
 	function askCount(organizeId, date) {
-		return fetch(yyUrl(), {
+		return siteFetch(yyUrl(), {
 			method: 'POST',
 			credentials: 'same-origin',
 			headers: { 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8' },
@@ -1442,6 +1543,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		try {
 			var jq = pageWindow() && pageWindow().jQuery;
 			if (jq) jq(searchBtn).data('original-html', '筛选');
+			else runInPage('try{if(window.jQuery)jQuery("#search_btn_PageList").data("original-html","筛选");}catch(e){}');
 		} catch (e) { /* ignore */ }
 	}
 
@@ -2222,7 +2324,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		if (cachedHtmlMeta && !forceFetch) {
 			return Promise.resolve(mergeMeta(cachedHtmlMeta));
 		}
-		return fetch(LIST_PAGE_PATH, { credentials: 'same-origin' }).then(function (r) {
+		return siteFetch(LIST_PAGE_PATH, { credentials: 'same-origin' }).then(function (r) {
 			if (!r || r.ok === false) throw new Error('HTTP ' + (r ? r.status : 'error'));
 			return r.text();
 		}).then(function (html) {
@@ -2236,7 +2338,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 	function queryListPage(meta, spec, curPage, pageSize) {
 		var dataJson = buildFilterJson(meta, spec);
 		var url = buildListDataUrl(meta, dataJson);
-		return fetch(url, {
+		return siteFetch(url, {
 			method: 'POST',
 			credentials: 'same-origin',
 			headers: { 'content-type': 'application/json' },
@@ -3028,11 +3130,23 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		if (bar && bar.style && multiState.active) bar.style.opacity = '1';
 	}
 
+	function postFrameMsg(win, payload) {
+		if (!win || typeof win.postMessage !== 'function') return;
+		win.postMessage('__dsh_wx_msg__:' + JSON.stringify(payload || {}), '*');
+	}
+
+	function parseFrameMsg(raw) {
+		if (typeof raw === 'string' && raw.indexOf('__dsh_wx_msg__:') === 0) {
+			try { return JSON.parse(raw.slice('__dsh_wx_msg__:'.length)); } catch (e) { return null; }
+		}
+		return (raw && typeof raw === 'object') ? raw : null;
+	}
+
 	function notifyTopMultiState() {
 		syncMultiButtons();
 		try {
 			if (window.top && window.top !== window && typeof window.top.postMessage === 'function') {
-				window.top.postMessage({ type: 'dsh-wx-multi-state', active: multiState.active }, '*');
+				postFrameMsg(window.top, { type: 'dsh-wx-multi-state', active: multiState.active });
 			}
 		} catch (error) { /* ignore */ }
 	}
@@ -3050,7 +3164,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 			return;
 		}
 		try {
-			iframe.contentWindow.postMessage({ type: 'dsh-wx-toggle-multi' }, '*');
+			postFrameMsg(iframe.contentWindow, { type: 'dsh-wx-toggle-multi' });
 		} catch (error) {
 			toast('无法通知当前页签开启多选：' + error, true);
 		}
@@ -3421,7 +3535,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		var synParam = syn.indexOf('%') >= 0 ? syn : encodeURIComponent(syn);
 		return {
 			method: 'POST',
-			url: '/Basic/ComponentAction/Post?req.synDataSource=' + synParam,
+			url: toAbsUrl('/Basic/ComponentAction/Post?req.synDataSource=' + synParam),
 			headers: { 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8' },
 			body: 'req.data_json=' + encodeURIComponent(JSON.stringify(payload)),
 		};
@@ -3520,8 +3634,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 				if (method !== 'GET' && method !== 'HEAD' && req.body !== undefined) {
 					fetchOpts.body = req.body;
 				}
-				var doFetch = nativeFetch || fetch;
-				return doFetch(req.url, fetchOpts).then(function (r) {
+				return siteFetch(req.url, fetchOpts).then(function (r) {
 					if (r && r.ok === false) throw new Error('HTTP ' + r.status);
 					return r.text();
 				}).then(function (txt) {
@@ -3707,8 +3820,8 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 	window.addEventListener('hashchange', begin);
 	window.addEventListener('focus', begin);
 	window.addEventListener('message', function (event) {
-		var data = event && event.data;
-		if (!data || typeof data !== 'object') return;
+		var data = parseFrameMsg(event && event.data);
+		if (!data) return;
 		if (data.type === 'dsh-wx-toggle-multi') {
 			toggleMultiSelect();
 		} else if (data.type === 'dsh-wx-multi-state') {
