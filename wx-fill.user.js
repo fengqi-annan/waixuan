@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.2.15
+// @version      2.2.16
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.2.15 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.2.16 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.2.15';
+	var VERSION = '2.2.16';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -2428,12 +2428,12 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 			+ '#dsh-home-root .dsh-formula{font-size:12px;color:#6b7280;font-variant-numeric:tabular-nums}'
 			+ '#dsh-home-root .dsh-card-foot{margin-top:6px;font-size:11px;color:#6b7280;line-height:1.5}'
 			+ '#dsh-home-root .dsh-sec-hint{font-size:12px;color:#1677ff;font-weight:500}'
-			+ '#dsh-home-root .dsh-chart-area{position:relative;flex:1 1 auto;display:flex;flex-direction:column;margin:4px 0 0;padding:22px 0 0;background:transparent;border:none;min-height:172px}'
+			+ '#dsh-home-root .dsh-chart-area{position:relative;flex:1 1 auto;display:flex;flex-direction:column;margin:4px 0 0;padding:22px 0 0;background:transparent;border:none;min-height:362px}'
 			+ '#dsh-home-root .dsh-chart-keys{position:absolute;top:0;left:0;display:flex;align-items:center;gap:12px;font-size:11px;line-height:1;pointer-events:none}'
 			+ '#dsh-home-root .dsh-chart-key--effect{color:#1d4ed8;font-weight:600}'
 			+ '#dsh-home-root .dsh-chart-key--daily{color:#3b82f6;font-weight:600}'
 			+ '#dsh-home-root .dsh-chart-key--target{color:#6b7280}'
-			+ '#dsh-home-root .dsh-chart-canvas{width:100%;flex:1 1 auto;min-height:150px;position:relative}'
+			+ '#dsh-home-root .dsh-chart-canvas{width:100%;flex:1 1 auto;min-height:340px;position:relative}'
 			+ '#dsh-home-root .dsh-chart-svg{display:block;overflow:visible}'
 			+ '#dsh-home-root .dsh-chart-line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}'
 			+ '#dsh-home-root .dsh-chart-line.effect{stroke:#1d4ed8}'
@@ -2477,14 +2477,15 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		}
 		var box = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null;
 		var w = box && box.width >= 60 ? Math.round(box.width) : 860;
-		var h = box && box.height >= 40 ? Math.round(box.height) : 170;
+		var h = box && box.height >= 40 ? Math.round(box.height) : 340;
 		var winH = typeof window !== 'undefined' && Number(window.innerHeight) > 0 ? Number(window.innerHeight) : 0;
 		if (box && winH > 0 && Number(box.top) > 0) {
 			var modalMask = byId(document, 'dsh-home-modal');
 			var bottomPad = modalMask ? (Math.round(winH * 0.04) + 20) : 22;
 			var availH = Math.round(winH - box.top - bottomPad);
-			h = availH > 170 ? availH : Math.max(h, 170);
+			h = availH > 340 ? availH : Math.max(h, 340);
 		}
+		h = Math.max(h, 340);
 		try { if (canvas.style) canvas.style.height = h + 'px'; } catch (error) { /* ignore */ }
 		// 高度撑开后若右侧出现纵向滚动条，重新量一次可用宽度以免最右侧圆点被挤压溢出
 		var boxAfter = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null;
