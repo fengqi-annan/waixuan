@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="外宣邀约·填表助手（二合一统一版）使用说明、安装步骤与 Win10 Edge 权限配置指南。">
+  <meta name="theme-color" content="#0d2b28">
+  <title>邀约填表助手使用说明 · 外宣指北</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='29' fill='%230d2f2c'/%3E%3Cpath d='M32 8 42 32 32 56 22 32Z' fill='%23eef6f2'/%3E%3Cpath d='M32 8 42 32 32 28 22 32Z' fill='%23e65f3c'/%3E%3Ccircle cx='32' cy='32' r='4' fill='%232fae9f'/%3E%3C/svg%3E">
+  <link rel="preload" href="LXGWWenKai-GB2312.woff2" as="font" type="font/woff2" crossorigin>
+  <style>
+    :root {
+      --ink: #16241f;
+      --muted: #5d6d67;
+      --paper: #f1f3f0;
+      --card: #ffffff;
+      --teal: #0f7a6e;
+      --teal-bright: #15907f;
+      --teal-deep: #0a5b53;
+      --teal-dark: #0d2b28;
+      --mint: #8ed8c5;
+      --line: rgba(22, 36, 31, .11);
+      --shadow-sm: 0 6px 18px rgba(18, 38, 33, .05);
+      --shadow-md: 0 18px 46px rgba(18, 38, 33, .08);
+      --font-display: "LXGWWenKai", "Kaiti SC", "STKaiti", "KaiTi", "楷体", serif;
+      --font-body: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    @font-face {
+      font-family: "LXGWWenKai";
+      src: url("LXGWWenKai-GB2312.woff2") format("woff2");
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(rgba(22, 36, 31, .042) 1px, transparent 1px) 0 0 / 100% 46px,
+        linear-gradient(90deg, rgba(22, 36, 31, .042) 1px, transparent 1px) 0 0 / 46px 100%,
+        radial-gradient(1100px 560px at 84% -16%, rgba(15, 122, 110, .1), transparent 62%),
+        radial-gradient(820px 460px at -8% 20%, rgba(15, 122, 110, .05), transparent 58%),
+        var(--paper);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    ::selection { background: rgba(15, 122, 110, .18); }
+    a { color: inherit; }
+    a:focus-visible, button:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    .wrap { width: min(1040px, calc(100% - 40px)); margin-inline: auto; }
+
+    code, kbd {
+      padding: 2px 6px;
+      border-radius: 6px;
+      border: 1px solid rgba(22, 36, 31, .12);
+      background: rgba(22, 36, 31, .045);
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      color: var(--teal-deep);
+    }
+
+    /* ===== 顶栏 ===== */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid rgba(22, 36, 31, .09);
+      background: rgba(241, 243, 240, .85);
+      backdrop-filter: blur(14px) saturate(1.15);
+    }
+    .nav {
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 22px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-display);
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      text-decoration: none;
+    }
+    .brand svg { width: 26px; height: 26px; flex: 0 0 auto; }
+    .brand-name { display: inline-flex; align-items: center; }
+    .nav-links { display: flex; align-items: center; gap: 8px; }
+    .nav-links a {
+      padding: 9px 16px;
+      border-radius: 999px;
+      color: #e8f2ed;
+      background: linear-gradient(150deg, #123a34, #0a2723);
+      box-shadow: 0 4px 12px rgba(10, 39, 34, .16);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: color .16s ease, background .16s ease, box-shadow .16s ease, transform .16s ease;
+    }
+    .nav-links a:hover {
+      color: #fff;
+      background: linear-gradient(135deg, var(--teal-bright), var(--teal-deep));
+      box-shadow: 0 6px 16px rgba(15, 122, 110, .28);
+      transform: translateY(-1px);
+    }
+
+    /* ===== 区块通用 ===== */
+    .section { padding: 30px 0; }
+    .section-head { margin-bottom: 20px; }
+    .section-kicker {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 10px;
+      color: var(--teal);
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .26em;
+    }
+    .section-kicker::before {
+      content: "";
+      width: 24px;
+      height: 2px;
+      border-radius: 2px;
+      background: currentColor;
+    }
+    h1, h2, h3 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+    h1 { font-size: clamp(28px, 4.4vw, 40px); line-height: 1.18; }
+    h2 { font-size: clamp(25px, 3.6vw, 32px); line-height: 1.2; color: var(--ink); }
+
+    /* ===== 顶部概览蓝图卡 ===== */
+    #intro { padding-top: 40px; }
+    .hero-card {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(28px, 4.5vw, 44px);
+      border-radius: 26px;
+      color: #eef6f2;
+      background:
+        linear-gradient(rgba(142, 216, 197, .045) 1px, transparent 1px) 0 0 / 100% 32px,
+        linear-gradient(90deg, rgba(142, 216, 197, .045) 1px, transparent 1px) 0 0 / 32px 100%,
+        radial-gradient(90% 130% at 100% 0%, rgba(21, 144, 127, .22), transparent 56%),
+        linear-gradient(150deg, #123a34, #0a2723);
+      box-shadow: 0 22px 56px rgba(10, 39, 34, .28);
+    }
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border: 1px dashed rgba(255, 255, 255, .15);
+      border-radius: 17px;
+      pointer-events: none;
+    }
+    .hero-card .section-kicker { color: var(--mint); }
+    .hero-title-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+    .hero-badge {
+      padding: 4px 12px;
+      border: 1px solid rgba(142, 216, 197, .35);
+      border-radius: 999px;
+      color: var(--mint);
+      background: rgba(142, 216, 197, .1);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .04em;
+    }
+    .hero-desc {
+      max-width: 720px;
+      margin: 16px 0 0;
+      color: rgba(238, 246, 242, .82);
+      font-size: 15px;
+      line-height: 1.8;
+    }
+    .hero-desc strong { color: #ffffff; }
+    .hero-desc code {
+      border-color: rgba(142, 216, 197, .28);
+      background: rgba(255, 255, 255, .09);
+      color: var(--mint);
+    }
+    .hero-actions {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 24px;
+    }
+    .btn-primary, .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 11px 20px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .03em;
+      text-decoration: none;
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;
+    }
+    .btn-primary {
+      color: #0b2925;
+      background: linear-gradient(135deg, #a8ead9, #74cfb8);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, .24);
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      background: linear-gradient(135deg, #bef2e4, #87dcc7);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, .32);
+    }
+    .btn-ghost {
+      color: #e8f2ed;
+      border: 1px solid rgba(255, 255, 255, .2);
+      background: rgba(255, 255, 255, .06);
+    }
+    .btn-ghost:hover {
+      border-color: rgba(142, 216, 197, .55);
+      background: rgba(255, 255, 255, .12);
+      transform: translateY(-1px);
+    }
+
+    /* ===== 六大功能目录卡（沿用主页目录美学） ===== */
+    .feature-list {
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--card);
+      box-shadow: var(--shadow-md);
+    }
+    /* 测绘刻度尺 */
+    .feature-list::before {
+      content: "";
+      position: absolute;
+      z-index: 2;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 9px;
+      background:
+        repeating-linear-gradient(90deg, rgba(22, 36, 31, .28) 0 1px, transparent 1px 60px) left top / 100% 9px no-repeat,
+        repeating-linear-gradient(90deg, rgba(22, 36, 31, .2) 0 1px, transparent 1px 12px) left top / 100% 5px no-repeat;
+      opacity: .4;
+      pointer-events: none;
+    }
+    .feature-item {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr);
+      align-items: start;
+      gap: 20px;
+      padding: 24px 30px 22px;
+      border-top: 1px solid var(--line);
+      transition: background .18s ease;
+    }
+    .feature-item:first-child { border-top: 0; padding-top: 28px; }
+    .feature-item:hover { background: rgba(15, 122, 110, .03); }
+    .feature-number {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--teal-bright), var(--teal-deep));
+      box-shadow: 0 8px 18px rgba(15, 122, 110, .24);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+    .feature-body h3 {
+      font-size: 19px;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+    .feature-body h3 .subtag {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 9px;
+      border-radius: 999px;
+      background: rgba(15, 122, 110, .08);
+      color: var(--teal-deep);
+      font-family: var(--font-body);
+      font-size: 11.5px;
+      font-weight: 600;
+      vertical-align: middle;
+    }
+    .feature-body p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.75;
+    }
+    .feature-body p strong { color: var(--ink); font-weight: 600; }
+    .feature-sublist {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.75;
+    }
+    .feature-sublist li + li { margin-top: 4px; }
+    .feature-sublist strong { color: var(--ink); font-weight: 600; }
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .kv-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border: 1px solid rgba(15, 122, 110, .22);
+      border-radius: 999px;
+      background: rgba(15, 122, 110, .05);
+      font-size: 12.5px;
+      color: var(--ink);
+    }
+    .kv-chip span { color: var(--muted); }
+    .kv-chip strong { color: var(--teal-deep); }
+
+    /* ===== 安装步骤 + Edge 必看（双栏图纸面板） ===== */
+    .info-grid { display: grid; grid-template-columns: .95fr 1.05fr; align-items: start; gap: 22px; }
+    .panel {
+      position: relative;
+      padding: 30px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, .78);
+      box-shadow: var(--shadow-sm);
+    }
+    .panel::after {
+      content: "";
+      position: absolute;
+      inset: 12px;
+      border: 1px dashed rgba(22, 36, 31, .12);
+      border-radius: 15px;
+      pointer-events: none;
+    }
+    .panel h3 {
+      margin: 0 0 20px;
+      font-family: var(--font-display);
+      font-size: 22px;
+      letter-spacing: .03em;
+    }
+    .steps { position: relative; display: grid; }
+    .steps::before {
+      content: "";
+      position: absolute;
+      left: 15px;
+      top: 22px;
+      bottom: 22px;
+      border-left: 2px dashed rgba(15, 122, 110, .28);
+    }
+    .step {
+      position: relative;
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 14px;
+      padding: 18px 0;
+      border-top: 1px solid var(--line);
+    }
+    .step:first-child { padding-top: 0; border-top: 0; }
+    .step:last-child { padding-bottom: 0; }
+    .step b {
+      position: relative;
+      z-index: 1;
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(15, 122, 110, .38);
+      border-radius: 50%;
+      color: var(--teal-deep);
+      background: #ffffff;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .step strong { display: block; margin-bottom: 6px; font-size: 15px; color: var(--ink); }
+    .step p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.7; }
+
+    .store-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .store-pill, .install-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 13px;
+      border: 1px solid rgba(15, 122, 110, .28);
+      border-radius: 999px;
+      background: rgba(15, 122, 110, .06);
+      color: var(--teal-deep);
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background .16s ease, color .16s ease, border-color .16s ease, box-shadow .16s ease;
+    }
+    .store-pill:hover, .install-pill:hover {
+      color: #fff;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--teal-bright), var(--teal-deep));
+      box-shadow: 0 6px 14px rgba(15, 122, 110, .25);
+    }
+    .install-pill {
+      margin-top: 10px;
+      padding: 8px 16px;
+      font-size: 12.5px;
+    }
+    .step-tip {
+      margin-top: 18px;
+      padding: 12px 15px;
+      border-radius: 14px;
+      border: 1px solid rgba(15, 122, 110, .18);
+      background: rgba(15, 122, 110, .05);
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    /* 深色蓝图面板：Win10 Edge 必看 */
+    .panel-dark {
+      overflow: hidden;
+      color: #e8f2ed;
+      border: 1px solid rgba(142, 216, 197, .18);
+      background:
+        linear-gradient(rgba(142, 216, 197, .05) 1px, transparent 1px) 0 0 / 100% 28px,
+        linear-gradient(90deg, rgba(142, 216, 197, .05) 1px, transparent 1px) 0 0 / 28px 100%,
+        radial-gradient(120% 150% at 100% 0%, rgba(21, 144, 127, .2), transparent 55%),
+        linear-gradient(150deg, #123a34, #0a2723);
+      box-shadow: 0 24px 56px rgba(10, 39, 34, .28);
+    }
+    .panel-dark::after { border-color: rgba(142, 216, 197, .2); }
+    .panel-dark .section-kicker { color: var(--mint); }
+    .panel-dark h3 { color: #f4faf7; margin-bottom: 10px; }
+    .panel-dark .edge-lead {
+      margin: 0 0 18px;
+      color: rgba(232, 242, 237, .78);
+      font-size: 13.5px;
+      line-height: 1.7;
+    }
+    .panel-dark .edge-lead strong { color: #fff; }
+    .panel-dark code, .panel-dark kbd {
+      border-color: rgba(142, 216, 197, .26);
+      background: rgba(255, 255, 255, .09);
+      color: var(--mint);
+    }
+    .dark-steps { display: grid; gap: 12px; position: relative; z-index: 1; }
+    .dark-step {
+      display: grid;
+      grid-template-columns: 32px minmax(0, 1fr);
+      gap: 12px;
+      padding: 14px 16px;
+      border: 1px solid rgba(255, 255, 255, .13);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .055);
+    }
+    .dark-step b {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      background: rgba(142, 216, 197, .16);
+      color: var(--mint);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .dark-step p {
+      margin: 0;
+      color: rgba(232, 242, 237, .85);
+      font-size: 13.5px;
+      line-height: 1.7;
+    }
+    .dark-step p strong { color: #fff; }
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 6px;
+      padding: 2px 9px;
+      border: 1px solid rgba(142, 216, 197, .35);
+      border-radius: 999px;
+      background: rgba(142, 216, 197, .12);
+      color: var(--mint);
+      font-family: var(--font-body);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      vertical-align: middle;
+      transition: background .15s ease, color .15s ease;
+    }
+    .copy-btn:hover { background: rgba(142, 216, 197, .24); color: #fff; }
+
+    /* ===== 常见问题 ===== */
+    .faq-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .faq-card {
+      padding: 22px 24px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--card);
+      box-shadow: var(--shadow-sm);
+    }
+    .faq-card h3 {
+      font-size: 17px;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+    .faq-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13.5px;
+      line-height: 1.75;
+    }
+    .faq-card p strong { color: var(--ink); }
+
+    .privacy-note {
+      margin-top: 18px;
+      padding: 18px 22px;
+      border-left: 3px solid var(--teal);
+      border-radius: 0 16px 16px 0;
+      background: rgba(15, 122, 110, .06);
+      color: var(--ink);
+      font-size: 13.5px;
+      line-height: 1.75;
+    }
+
+    footer {
+      padding: 34px 0 48px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 20px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .footer-links { display: flex; gap: 18px; }
+    footer a { text-decoration: none; }
+    footer a:hover { color: var(--teal); }
+
+    @media (max-width: 820px) {
+      .info-grid, .faq-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      .wrap { width: min(100% - 24px, 1040px); }
+      .nav { min-height: 58px; }
+      .nav-links a:not(.keep) { display: none; }
+      .section { padding: 24px 0; }
+      #intro { padding-top: 28px; }
+      .hero-card { padding: 24px 20px; border-radius: 22px; }
+      .hero-card::after { inset: 10px; border-radius: 14px; }
+      .feature-item { grid-template-columns: 42px minmax(0, 1fr); gap: 12px; padding: 18px 16px; }
+      .feature-item:first-child { padding-top: 22px; }
+      .feature-number { width: 38px; height: 38px; border-radius: 12px; font-size: 13px; }
+      .panel { padding: 22px; border-radius: 20px; }
+      .panel::after { inset: 9px; }
+      .faq-card { padding: 18px; border-radius: 18px; }
+      footer { flex-direction: column; align-items: flex-start; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <nav class="nav wrap" aria-label="页面导航">
+      <a class="brand" href="index.html">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29" fill="#0d2f2c"/><path d="M32 8 42 32 32 56 22 32Z" fill="#eef6f2"/><path d="M32 8 42 32 32 28 22 32Z" fill="#e65f3c"/><circle cx="32" cy="32" r="4" fill="#2fae9f"/></svg>
+        <span class="brand-name">外宣指北</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features">六大功能</a>
+        <a href="#install">三步安装</a>
+        <a href="#edge">Edge 必看</a>
+        <a href="#faq">常见问题</a>
+        <a class="keep" href="index.html">← 返回首页</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="section wrap" id="intro">
+      <div class="hero-card">
+        <p class="section-kicker">USER SCRIPT · GUIDE</p>
+        <div class="hero-title-row">
+          <h1>外宣邀约 · 填表助手</h1>
+          <span class="hero-badge">二合一统一版</span>
+        </div>
+        <p class="hero-desc">
+          一个<strong>只对外宣网站（<code>wx.qgxkt.doupeixun.cn</code>）生效</strong>的油猴脚本，用来省掉每天填邀约时重复的那几步。它不会替你提交任何东西 —— <strong>「提交」永远是你自己点</strong>。
+        </p>
+        <div class="hero-actions">
+          <a class="btn-primary" href="https://waixuan.pages.dev/wx-fill.user.js" target="_blank" rel="noopener">安装脚本 ↗</a>
+          <a class="btn-ghost" href="#install">三步安装指引</a>
+          <a class="btn-ghost" href="#edge">Win10 Edge 必看</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap" id="features">
+      <div class="section-head">
+        <p class="section-kicker">FEATURES</p>
+        <h2>它帮你做六件事</h2>
+      </div>
+      <div class="feature-list">
+        <article class="feature-item">
+          <span class="feature-number">01</span>
+          <div class="feature-body">
+            <h3>页签能多开，还能拖拽换序与重命名</h3>
+            <p>
+              网站的页签不允许同一个页面开两个（它按网址去重），装了这个之后，页签栏右边会多一个 <strong>「＋」</strong>（已自动隐藏原本重合的右箭头 <code>&gt;</code>），点一下就把当前页签<strong>再开一个</strong>，每个可以各设一套筛选条件（比如一个看“培训/流失”，一个看“当天等待面试”）。在某个页签上<strong>点右键</strong>也能复制那一个；<strong>按住页签拖拽</strong>可调整顺序，<strong>双击页签标题</strong>可直接重命名。
+            </p>
+          </div>
+        </article>
+
+        <article class="feature-item">
+          <span class="feature-number">02</span>
+          <div class="feature-body">
+            <h3>主页数据仪表盘 <span class="subtag">左上角小房子图标 / 独立列表页「主 · 仪表盘」</span></h3>
+            <p>
+              进入工作台时，左上角原本无用的 <strong>小房子页签</strong> 已直接替换为数据主页（<strong>默认只读取本地 <code>localStorage</code> 缓存、不自动联网请求，且切看历史日期不会覆盖今日缓存，需要最新数据时点一下右上角「刷新全部」即可</strong>）；按总计 → 日报 → 月报顺序依次刷新，展示<strong>总计</strong>（已培训 / 流失 / 总入职）、<strong>月报</strong>（2:3:2 排布：<strong>入职</strong> / <strong>有效</strong> / <strong>到面数</strong>，右上角可填<strong>目标人数</strong>联动底部同色系自适应高度进度折线图）、以及<strong>日报</strong>（等待面试 / 已面试 / 有效 / 无效，支持切换任意一天单独即时刷新）；左上角 <code>&lt;&lt;</code> 按钮已改为<strong>收起/展开左侧边栏</strong>。
+            </p>
+          </div>
+        </article>
+
+        <article class="feature-item">
+          <span class="feature-number">03</span>
+          <div class="feature-body">
+            <h3>多选条目统一到场 / 撤销到场 <span class="subtag">「多」按钮 / 「多选 · 到场」</span></h3>
+            <p>
+              点页签栏右上角 <strong>「多」</strong>（或独立列表页右上角 <strong>「多选 · 到场」</strong>）开启多选模式后，可自由勾选多条记录，然后直接点顶部紫色操作栏上的 <strong>「批量到场」/「批量撤销到场」</strong>（或任意一行的 <strong>「到场」/「撤销到场」</strong>），脚本会批量依次提交选中条目并在全部完成后统一刷新一次列表，避免单条点击频繁刷新页面。
+            </p>
+          </div>
+        </article>
+
+        <article class="feature-item">
+          <span class="feature-number">04</span>
+          <div class="feature-body">
+            <h3>打开「新增」时自动填好固定项</h3>
+            <div class="chip-row">
+              <span class="kv-chip"><span>登记日期</span><strong>今天</strong></span>
+              <span class="kv-chip"><span>招聘渠道</span><strong>外宣BOSS直聘</strong></span>
+              <span class="kv-chip"><span>面试岗位</span><strong>运营</strong></span>
+              <span class="kv-chip"><span>性别</span><strong>男</strong></span>
+            </div>
+          </div>
+        </article>
+
+        <article class="feature-item">
+          <span class="feature-number">05</span>
+          <div class="feature-body">
+            <h3>自动挑最近一个还能填的时段</h3>
+            <p>
+              选完<strong>基地 + 社区</strong>之后，它会问网站自己（可约时段 + 单小时上限 + 当前已约人数），把「预约面试时间」的日期、时、分都选好 —— 今天还有空就今天，今天满了就往后顺延（最多看近 10 天），全满会提示你自己定。上次用过的基地/社区会记住，下次自动带出来。
+            </p>
+          </div>
+        </article>
+
+        <article class="feature-item">
+          <span class="feature-number">06</span>
+          <div class="feature-body">
+            <h3>粘贴核心信息一键填表 <span class="subtag">工作台联动 / 手动呼出</span></h3>
+            <ul class="feature-sublist">
+              <li>从工作台点「填到网站」跳过来（地址带 <code>#dsh-fill=</code>）时，会自动读剪贴板或弹出粘贴框填入；</li>
+              <li>平时在网页任意位置按 <kbd>Alt + Shift + V</kbd>，或点页签栏右上角的 <strong>「贴」</strong>（独立列表页右上角为 <strong>「贴 · 填表」</strong>），也能随时呼出粘贴框手动填入；不用它时完全不打扰日常手填。</li>
+            </ul>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section wrap">
+      <div class="info-grid">
+        <article class="panel" id="install">
+          <p class="section-kicker">INSTALL</p>
+          <h3>安装（三步）</h3>
+          <div class="steps">
+            <div class="step">
+              <b>01</b>
+              <div>
+                <strong>给浏览器装篡改猴（Tampermonkey）</strong>
+                <p>先在当前使用的浏览器中安装扩展：</p>
+                <div class="store-links">
+                  <a class="store-pill" href="https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd" target="_blank" rel="noopener">Edge 加载项商店 ↗</a>
+                  <a class="store-pill" href="https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank" rel="noopener">Chrome 应用商店 ↗</a>
+                  <a class="store-pill" href="https://addons.mozilla.org/firefox/addon/tampermonkey/" target="_blank" rel="noopener">Firefox 附加组件 ↗</a>
+                </div>
+              </div>
+            </div>
+            <div class="step">
+              <b>02</b>
+              <div>
+                <strong>点击安装脚本</strong>
+                <p>点击下方按钮，篡改猴会弹出安装页，在页面中点「安装」即可：</p>
+                <a class="install-pill" href="https://waixuan.pages.dev/wx-fill.user.js" target="_blank" rel="noopener">安装 wx-fill.user.js ↗</a>
+              </div>
+            </div>
+            <div class="step">
+              <b>03</b>
+              <div>
+                <strong>刷新一下外宣网站的页面</strong>
+                <p>旧页面里没有它，安装完记得刷新外宣网站。</p>
+              </div>
+            </div>
+          </div>
+          <div class="step-tip">
+            <strong>装好后如何确认：</strong>地址栏右边篡改猴的图标上会有一个数字，点开能看到「外宣邀约 · 一键填入（填表助手）」。
+          </div>
+        </article>
+
+        <article class="panel panel-dark" id="edge">
+          <p class="section-kicker">WINDOWS 10 · EDGE</p>
+          <h3>Win10 Edge 必看</h3>
+          <p class="edge-lead">
+            <strong>完全没反应 / 看不到「＋」和日志时：</strong>Win10 Edge 商店版的篡改猴已升级到 Manifest V3（5.x），如果安装后<strong>页面完全没有「＋」、按 F12 也没有 <code>[邀约助手]</code> 日志</strong>，按下面步骤开启权限即可：
+          </p>
+          <div class="dark-steps">
+            <div class="dark-step">
+              <b>01</b>
+              <p>
+                地址栏打开 <code>edge://extensions/</code>
+                <button class="copy-btn" type="button" data-copy="edge://extensions/">复制地址</button>，开启<strong>「开发人员模式」</strong>（页面左下角或右上角开关）。
+              </p>
+            </div>
+            <div class="dark-step">
+              <b>02</b>
+              <p>
+                找到「篡改猴（Tampermonkey）」→ 点<strong>「详细信息」</strong> → 往下拉确认开启<strong>「允许用户脚本」</strong>（Allow user scripts），且站点访问权限包含外宣网站。
+              </p>
+            </div>
+            <div class="dark-step">
+              <b>03</b>
+              <p>
+                回到外宣网站按 <kbd>Ctrl + F5</kbd> 强刷一次页面，按 <kbd>F12</kbd> 控制台出现 <code>[邀约助手] 就绪（...，二合一版）</code> 即生效。
+              </p>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section wrap" id="faq">
+      <div class="section-head">
+        <p class="section-kicker">FAQ &amp; PRIVACY</p>
+        <h2>常见问题</h2>
+      </div>
+      <div class="faq-grid">
+        <article class="faq-card">
+          <h3>页签上没出现「＋」或「贴」？</h3>
+          <p>先按上面的 Win10 Edge 权限检查；确认刷新过页面；再看你盯的是不是网站<strong>最外层</strong>那一层（页签栏只在最外层；列表页本身是嵌在里面的）。</p>
+        </article>
+        <article class="faq-card">
+          <h3>火狐（Firefox）或沙箱模式可以用吗？</h3>
+          <p>同样能用。脚本内置跨沙箱与跨 iframe 桥接（<code>runInDoc</code>），即便读不到页面全局也能正常开页签、刷新下拉框和剩余人数红字。</p>
+        </article>
+        <article class="faq-card">
+          <h3>打开「新增」没自动填？</h3>
+          <p>刷新一次页面再试。还不行就按 <kbd>F12</kbd> 打开控制台，输入 <code>__dshWxDiag()</code> 回车，即可看到诊断信息。</p>
+        </article>
+        <article class="faq-card">
+          <h3>不想要了怎么办？</h3>
+          <p>篡改猴面板里把这条脚本删掉即可，网站本身不受影响。</p>
+        </article>
+      </div>
+
+      <div class="privacy-note">
+        这个脚本只对 <code>wx.qgxkt.doupeixun.cn</code> 生效（脚本头里写着 <code>@match</code>），不会读你别的网页；它只调网站自己的接口，不往任何第三方发数据。
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <span>© 2026 外宣指北 · 外宣邀约填表助手使用说明</span>
+    <div class="footer-links">
+      <a href="index.html">返回首页</a>
+      <a href="#top">返回顶部</a>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelectorAll('[data-copy]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var text = btn.getAttribute('data-copy');
+        if (!navigator.clipboard) return;
+        navigator.clipboard.writeText(text).then(function () {
+          var prev = btn.textContent;
+          btn.textContent = '已复制';
+          setTimeout(function () { btn.textContent = prev; }, 1600);
+        });
+      });
+    });
+  </script>
+</body>
+</html>
