@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.2.18
+// @version      2.2.19
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.2.18 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.2.19 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.2.18';
+	var VERSION = '2.2.19';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -176,6 +176,7 @@ function fillForm(doc, data, names) {
 	var label = names || {};
 	var written = 0;
 	var missing = [];
+	var touchedSelect = false;
 	Object.keys(values).forEach(function (name) {
 		var nodes = doc.getElementsByName(name);
 		if (!nodes || !nodes.length) { missing.push(name); return; }
@@ -184,11 +185,15 @@ function fillForm(doc, data, names) {
 			written += 1;
 			return;
 		}
+		if (String(nodes[0].tagName || '').toLowerCase() === 'select' || String(nodes[0].type || '').indexOf('select') >= 0) {
+			touchedSelect = true;
+		}
 		nodes[0].value = values[name];
 		written += 1;
 	});
 	var org = doc.querySelector('[name=organize_id]');
 	if (org && values.organize_id) {
+		touchedSelect = true;
 		var hit = null;
 		for (var j = 0; j < org.options.length; j += 1) {
 			if (org.options[j].value === values.organize_id) hit = org.options[j];
@@ -208,15 +213,20 @@ function fillForm(doc, data, names) {
 		}
 		org.value = values.organize_id;
 	}
+	var renderArg = touchedSelect ? undefined : 'radio';
 	var rendered = false;
 	try {
 		if (doc.defaultView && doc.defaultView.layui && doc.defaultView.layui.form) {
-			doc.defaultView.layui.form.render();
+			if (renderArg) doc.defaultView.layui.form.render(renderArg);
+			else doc.defaultView.layui.form.render();
 			rendered = true;
 		}
 	} catch (error) { /* 沙箱/未就绪则走下面桥接 */ }
 	if (!rendered) {
-		runInDoc(doc, 'try{if(typeof layui!=="undefined"&&layui&&layui.form)layui.form.render();}catch(e){}');
+		var code = renderArg
+			? 'try{if(typeof layui!=="undefined"&&layui&&layui.form)layui.form.render("radio");}catch(e){}'
+			: 'try{if(typeof layui!=="undefined"&&layui&&layui.form)layui.form.render();}catch(e){}';
+		runInDoc(doc, code);
 	}
 	return { written: written, missing: missing };
 }
@@ -1074,12 +1084,12 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 
 	var tip = null;
 	function toast(text, bad) {
+		console.log('[邀约助手] ' + text);
+		// 仅保留异常/阻断类红字提示（bad=true），取消右下角普通黑色状态说明弹窗，避免遮挡与打扰
+		if (!bad) return;
 		var hostDoc = topDoc();
 		var hostBody = hostDoc && hostDoc.body;
-		if (!hostBody) {
-			console.log('[邀约助手] ' + text);
-			return;
-		}
+		if (!hostBody) return;
 		if (!tip || tip.ownerDocument !== hostDoc) {
 			tip = hostDoc.createElement('div');
 			tip.style.cssText = 'position:fixed;right:18px;bottom:18px;z-index:99999;max-width:340px;padding:10px 13px;'
@@ -1087,11 +1097,10 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 			hostBody.appendChild(tip);
 		}
 		tip.textContent = text;
-		tip.style.background = bad ? 'rgba(150,30,30,.96)' : 'rgba(20,22,26,.92)';
+		tip.style.background = 'rgba(150,30,30,.96)';
 		tip.style.display = 'block';
 		window.clearTimeout(tip.__hide);
-		tip.__hide = window.setTimeout(function () { tip.style.display = 'none'; }, bad ? 12000 : 4000);
-		console.log('[邀约助手] ' + text);
+		tip.__hide = window.setTimeout(function () { tip.style.display = 'none'; }, 12000);
 	}
 
 	/* ==================================================================
@@ -1806,8 +1815,30 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 
 	var focusSubmitDoc = null;
 
+	function hasOpenSelectDropdown(doc) {
+		try {
+			var open = doc && doc.querySelector && doc.querySelector('.layui-form-select.layui-form-selected');
+			if (!open) return false;
+			if (open.classList && typeof open.classList.contains === 'function') {
+				return open.classList.contains('layui-form-selected');
+			}
+			return String(open.className || '').indexOf('layui-form-selected') >= 0;
+		} catch (e) {
+			return false;
+		}
+	}
+
 	function focusSubmit(doc) {
 		if (!doc || focusSubmitDoc === doc) return false;
+		// 若用户正在输入某个字段或已展开 Layui 下拉框（如手动把岗位改为「助播」），绝不抢走焦点
+		try {
+			var active = doc.activeElement;
+			var activeTag = active && active.tagName ? String(active.tagName).toLowerCase() : '';
+			if ((activeTag === 'input' || activeTag === 'select' || activeTag === 'textarea') && active.id !== 'post_submit_post') {
+				return false;
+			}
+		} catch (e) { /* ignore */ }
+		if (hasOpenSelectDropdown(doc)) return false;
 		var btn = byId(doc, 'post_submit_post');
 		if (!btn || typeof btn.focus !== 'function') return false;
 		try {
@@ -2059,9 +2090,10 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		console.log('[邀约助手] 带出上次的基地/社区：' + (last.base || '') + ' / ' + (last.name || ''));
 	}
 
-	/** 页面自己的 layui 要好几秒才就绪；等它一就绪，再 render 一次，把界面刷成实际的值。 */
+	/** 页面自己的 layui 要好几秒才就绪；等它一就绪，再 render 一次，把界面刷成实际的值（若用户正展开下拉则顺延一拍）。 */
 	function renderOnce(doc, state) {
 		if (state.rendered) return;
+		if (hasOpenSelectDropdown(doc)) return;
 		try {
 			if (doc.defaultView && doc.defaultView.layui && doc.defaultView.layui.form) {
 				doc.defaultView.layui.form.render();
@@ -2077,17 +2109,58 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 	/**
 	 * 盯着这张表单（两种触发共用）：
 	 *   · 每隔 800ms 把**空着的固定值**补上（页面自己初始化时会把我们填的冲掉）；
+	 *   · 一旦用户手动改过某栏（比如把岗位改成助播，或刻意清回「请选择」），该栏立即停手绝不覆盖；
 	 *   · 顺便等 layui 就绪后 render 一次，让界面显示的就是实际的值。
 	 */
 	function watchForm(doc, keep, names) {
 		var state = { rendered: false };
+		var userEdited = {};
+		var baseKeep = keep || {};
+		if (doc && typeof doc.addEventListener === 'function' && !doc.__dshEditTracked) {
+			doc.__dshEditTracked = true;
+			doc.__dshUserEdited = userEdited;
+			doc.addEventListener('change', function (e) {
+				var el = e && e.target;
+				var n = el && el.name ? String(el.name) : '';
+				if (n) userEdited[n] = true;
+			}, true);
+			doc.addEventListener('click', function (e) {
+				var cur = e && e.target;
+				while (cur && cur !== doc.body) {
+					var cls = String(cur.className || '');
+					if (cls.indexOf('layui-form-select') >= 0) {
+						var prev = cur.previousElementSibling;
+						if (prev && prev.name) userEdited[String(prev.name)] = true;
+						break;
+					}
+					cur = cur.parentElement || cur.parentNode;
+				}
+			}, true);
+		}
 		var ticks = 0;
 		var id = window.setInterval(function () {
 			ticks += 1;
 			if (ticks > 150) { window.clearInterval(id); return; }
 			if (!doc.querySelector || !doc.querySelector('[name=yy_interview_date]')) { window.clearInterval(id); return; }
 			renderOnce(doc, state);
-			var again = fillIfEmpty(doc, keep || {}, names || {});
+			var edited = doc.__dshUserEdited || userEdited;
+			var filtered = {};
+			var hasAny = false;
+			Object.keys(baseKeep).forEach(function (k) {
+				if (edited[k]) return;
+				var nodes = doc.getElementsByName ? doc.getElementsByName(k) : null;
+				if (nodes && nodes.length && nodes[0].type !== 'radio') {
+					var curVal = String(nodes[0].value == null ? '' : nodes[0].value).trim();
+					if (curVal && curVal !== String(baseKeep[k] == null ? '' : baseKeep[k]).trim()) {
+						edited[k] = true;
+						return;
+					}
+				}
+				filtered[k] = baseKeep[k];
+				hasAny = true;
+			});
+			if (!hasAny) return;
+			var again = fillIfEmpty(doc, filtered, names || {});
 			if (again && again.written) {
 				console.log('[邀约助手] 页面把它冲掉了，又补回 ' + again.written + ' 栏');
 			}
@@ -2144,16 +2217,18 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 	function prefill(doc) {
 		if (isClaimed(doc)) return;
 		var now = today();
+		var defaultPost = readHomePost();
 		var want = {
 			c_date: now,
 			zp_channel: FIXED.channel,
-			post: FIXED.post,
 			gender: FIXED.gender,
 		};
+		if (defaultPost) want.post = defaultPost;
 		var stats = fillForm(doc, want, {});
 		lastStats = stats;
 		applyRemembered(doc);
-		console.log('[邀约助手] 固定值写了 ' + stats.written + ' 栏（渠道=' + FIXED.channel + ' 岗位=' + FIXED.post
+		syncPagePost(doc);
+		console.log('[邀约助手] 固定值写了 ' + stats.written + ' 栏（渠道=' + FIXED.channel + ' 岗位=' + (defaultPost || '不选择')
 			+ ' 性别=' + FIXED.gender + ' 登记日期=' + now + '）；这一页上没有的：', stats.missing);
 		watchForm(doc, want, {});
 		refreshCount(doc);
@@ -2183,6 +2258,8 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 	var LIST_META_KEY = 'wx-invite-helper-list-meta';
 	var HOME_CACHE_KEY = 'wx-invite-helper-home-cache';
 	var HOME_GOAL_KEY = 'wx-invite-helper-home-goal';
+	var HOME_POST_KEY = 'wx-invite-helper-post';
+	var POST_OPTIONS = ['运营', '主播', '弹幕回复员', '运营助理', '中控', '管培生', '储备管理', '客服', '助播'];
 	var LIST_PAGE_PATH = '/XianxiaZp/Yaoyue/List';
 
 	function readHomeGoal() {
@@ -2200,6 +2277,23 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		var g = Math.round(n);
 		try { window.localStorage.setItem(HOME_GOAL_KEY, String(g)); } catch (error) { /* ignore */ }
 		return g;
+	}
+
+	function readHomePost() {
+		try {
+			var raw = window.localStorage.getItem(HOME_POST_KEY);
+			if (raw === null || raw === undefined) return String(FIXED.post || '');
+			var v = String(raw).trim();
+			if (v === '') return '';
+			return POST_OPTIONS.indexOf(v) >= 0 ? v : String(FIXED.post || '');
+		} catch (error) { return String(FIXED.post || ''); }
+	}
+
+	function saveHomePost(val) {
+		var v = String(val == null ? '' : val).trim();
+		if (v !== '' && POST_OPTIONS.indexOf(v) < 0) v = String(FIXED.post || '');
+		try { window.localStorage.setItem(HOME_POST_KEY, v); } catch (error) { /* ignore */ }
+		return v;
 	}
 
 	function readCookie(name) {
@@ -2456,6 +2550,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		month: monthRange(new Date()).ym,
 		day: today(),
 		goal: readHomeGoal(),
+		post: readHomePost(),
 		counts: {},
 		loading: false,
 		totalLoading: false,
@@ -2885,6 +2980,13 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		var refMonthBtn = h('button', { type: 'button', id: 'dsh-hm-refresh-month', className: 'dsh-btn', text: '刷新月报' });
 		var refDayBtn = h('button', { type: 'button', id: 'dsh-hm-refresh-day', className: 'dsh-btn', text: '刷新日报' });
 		var refBtn = h('button', { type: 'button', id: 'dsh-hm-refresh', className: 'dsh-btn primary', text: '刷新全部' });
+		dashState.post = readHomePost();
+		var postSelect = h('select', { id: 'dsh-hm-post-select', className: 'dsh-input', title: '自动填表时默认选择的面试岗位（选“不选择”则留空不填）' });
+		postSelect.appendChild(h('option', { value: '', text: '不选择' }));
+		for (var pi = 0; pi < POST_OPTIONS.length; pi += 1) {
+			postSelect.appendChild(h('option', { value: POST_OPTIONS[pi], text: POST_OPTIONS[pi] }));
+		}
+		postSelect.value = dashState.post;
 		var goalInput = h('input', { type: 'number', id: 'dsh-hm-goal-input', className: 'dsh-input', min: '1', step: '1', css: 'width:68px', value: String(dashState.goal) });
 		var monthInput = h('input', { type: 'month', id: 'dsh-hm-month-input', className: 'dsh-input', value: dashState.month });
 		var dayTodayBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-today', text: '今天' });
@@ -2922,6 +3024,8 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 						h('span', { id: 'dsh-hm-month-status', className: 'dsh-sec-hint', text: '' }),
 					]),
 					h('div', { className: 'dsh-ctrl' }, [
+						h('span', { css: 'font-size:12px;color:#6b7280', text: '岗位：' }),
+						postSelect,
 						h('span', { css: 'font-size:12px;color:#6b7280', text: '目标：' }),
 						goalInput,
 						h('span', { css: 'font-size:12px;color:#6b7280', text: '面试月份：' }),
@@ -2977,6 +3081,11 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 			]),
 		]);
 		pane.appendChild(root);
+
+		postSelect.addEventListener('change', function () {
+			dashState.post = saveHomePost(postSelect.value);
+			postSelect.value = dashState.post;
+		});
 
 		var applyGoal = function () {
 			var n = Number(goalInput.value);
