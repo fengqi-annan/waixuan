@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.2.16
+// @version      2.2.18
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.2.16 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.2.18 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.2.16';
+	var VERSION = '2.2.18';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -2013,6 +2013,13 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 
 	function begin() {
 		if (!armed()) return;
+		if (!document.body) {
+			if (!begin.__waitDom) {
+				begin.__waitDom = true;
+				document.addEventListener('DOMContentLoaded', begin);
+			}
+			return;
+		}
 		consumeHash();
 		if (navigator.clipboard && navigator.clipboard.readText) {
 			navigator.clipboard.readText().then(runClip, function (err) {
@@ -2451,6 +2458,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		goal: readHomeGoal(),
 		counts: {},
 		loading: false,
+		totalLoading: false,
 		monthLoading: false,
 		dayLoading: false,
 		statusText: '未加载',
@@ -2540,9 +2548,9 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 			var el = byId(document, id);
 			if (el) el.textContent = txt;
 		};
-		setText('dsh-hm-total-trained', fmtVal(s.totalTrained));
-		setText('dsh-hm-total-lost', fmtVal(s.totalLost));
-		setText('dsh-hm-total-joined', fmtVal(s.totalJoined));
+		setText('dsh-hm-total-trained', dashState.totalLoading && s.totalTrained === null ? '…' : fmtVal(s.totalTrained));
+		setText('dsh-hm-total-lost', dashState.totalLoading && s.totalLost === null ? '…' : fmtVal(s.totalLost));
+		setText('dsh-hm-total-joined', dashState.totalLoading && s.totalJoined === null ? '…' : fmtVal(s.totalJoined));
 
 		setText('dsh-hm-month-range', mr.shortStart + ' ~ ' + mr.shortEnd + '（' + mr.start + ' 至 ' + mr.end + '）');
 		setText('dsh-hm-month-status', dashState.monthLoading
@@ -2591,8 +2599,11 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 			stEl.textContent = dashState.statusText + (dashState.updatedAt && !dashState.loading ? (' · 更新于 ' + dashState.updatedAt) : '');
 			stEl.className = 'dsh-status' + (dashState.statusBad ? ' bad' : '');
 		}
-		var refBtn = byId(document, 'dsh-hm-refresh');
-		if (refBtn) refBtn.disabled = dashState.loading;
+		var refIds = ['dsh-hm-refresh', 'dsh-hm-refresh-total', 'dsh-hm-refresh-month', 'dsh-hm-refresh-day'];
+		for (var ri = 0; ri < refIds.length; ri += 1) {
+			var refEl = byId(document, refIds[ri]);
+			if (refEl) refEl.disabled = dashState.loading;
+		}
 		drawDashboardChart();
 	}
 
@@ -2715,9 +2726,15 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		dashState.loading = true;
 		dashState.statusBad = false;
 		dashState.statusText = '正在同步列表字段…';
+		var includeTotal = (scope === 'all' || scope === 'init' || scope === 'total');
 		var includeMonth = (scope === 'all' || scope === 'init' || scope === 'month');
-		var includeDayInterviewed = (scope === 'all' || scope === 'init' || scope === 'day');
-		var includeDayWaiting = (scope === 'all' || scope === 'init');
+		var includeDayInterviewed = (scope === 'all' || scope === 'init' || scope === 'day' || scope === 'dayAll');
+		var includeDayWaiting = (scope === 'all' || scope === 'init' || scope === 'dayAll');
+		if (includeTotal) {
+			dashState.totalLoading = true;
+			dashState.counts.totalTrained = null;
+			dashState.counts.totalLost = null;
+		}
 		if (includeMonth) {
 			dashState.monthLoading = true;
 			dashState.counts.monthTrained = null;
@@ -2750,9 +2767,9 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 			dashState.meta = meta;
 			var mr = monthRange(dashState.month);
 			var tasks = [];
-			if (scope === 'all' || scope === 'init') {
+			if (includeTotal) {
 				tasks.push({ key: 'totalTrained', label: '总计 · 已培训', spec: { status: '已培训' } });
-				tasks.push({ key: 'totalLost', label: '总计 · 流失', spec: { status: '流失' } });
+				tasks.push({ key: 'totalLost', label: '总计 · 流失', lastTotalTask: true, spec: { status: '流失' } });
 			}
 			if (includeDayInterviewed) {
 				tasks.push({ key: 'dayInterviewed', label: '日报 · 已面试', withRows: 'status', lastDayInterviewed: true, spec: { dateFrom: dashState.day, dateTo: dashState.day } });
@@ -2769,6 +2786,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 				if (dashState.runId !== runId) return Promise.resolve();
 				if (idx >= tasks.length) {
 					dashState.loading = false;
+					dashState.totalLoading = false;
 					dashState.monthLoading = false;
 					dashState.dayLoading = false;
 					dashState.statusText = '就绪';
@@ -2813,6 +2831,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 						if (t.lastDayTask || (t.lastDayInterviewed && !includeDayWaiting)) dashState.dayLoading = false;
 					} else {
 						dashState.counts[t.key] = res;
+						if (t.lastTotalTask) dashState.totalLoading = false;
 					}
 					paintDashboard();
 					return step(idx + 1);
@@ -2822,6 +2841,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		}).catch(function (err) {
 			if (dashState.runId !== runId) return;
 			dashState.loading = false;
+			dashState.totalLoading = false;
 			dashState.monthLoading = false;
 			dashState.dayLoading = false;
 			dashState.statusText = '查询失败：' + (err && err.message ? err.message : String(err));
@@ -2861,6 +2881,9 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		while (pane.firstChild) pane.removeChild(pane.firstChild);
 		pane.innerHTML = '';
 
+		var refTotalBtn = h('button', { type: 'button', id: 'dsh-hm-refresh-total', className: 'dsh-btn', text: '刷新入职' });
+		var refMonthBtn = h('button', { type: 'button', id: 'dsh-hm-refresh-month', className: 'dsh-btn', text: '刷新月报' });
+		var refDayBtn = h('button', { type: 'button', id: 'dsh-hm-refresh-day', className: 'dsh-btn', text: '刷新日报' });
 		var refBtn = h('button', { type: 'button', id: 'dsh-hm-refresh', className: 'dsh-btn primary', text: '刷新全部' });
 		var goalInput = h('input', { type: 'number', id: 'dsh-hm-goal-input', className: 'dsh-input', min: '1', step: '1', css: 'width:68px', value: String(dashState.goal) });
 		var monthInput = h('input', { type: 'month', id: 'dsh-hm-month-input', className: 'dsh-input', value: dashState.month });
@@ -2876,7 +2899,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 					user ? h('span', { id: 'dsh-hm-user-badge', className: 'dsh-badge', text: '账号：' + user }) : null,
 					h('span', { id: 'dsh-hm-status', className: 'dsh-status', text: '准备就绪' }),
 				]),
-				h('div', { className: 'dsh-actions' }, [refBtn]),
+				h('div', { className: 'dsh-actions' }, [refTotalBtn, refMonthBtn, refDayBtn, refBtn]),
 			]),
 			h('div', { className: 'dsh-sec' }, [
 				h('div', { className: 'dsh-sec-hd' }, [
@@ -2994,6 +3017,9 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		dayYestBtn.addEventListener('click', function () { setDay(isoOf(new Date(Date.now() - 86400000))); });
 		dayBeforeBtn.addEventListener('click', function () { setDay(isoOf(new Date(Date.now() - 2 * 86400000))); });
 
+		refTotalBtn.addEventListener('click', function () { loadDashboardData('total', false); });
+		refMonthBtn.addEventListener('click', function () { loadDashboardData('month', false); });
+		refDayBtn.addEventListener('click', function () { loadDashboardData('dayAll', false); });
 		refBtn.addEventListener('click', function () { loadDashboardData('all', false); });
 
 		if (!window.__dshHomeResizeHooked) {
