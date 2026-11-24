@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.3.8
+// @version      2.3.9
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.3.8 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.3.9 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.3.8';
+	var VERSION = '2.3.9';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -950,6 +950,7 @@ function buildQuickFilterPreset(presetKey, nowDate, opts) {
 	var o = opts || {};
 	var sep = String(o.rangeSep || ' ~ ');
 	var waitingStatus = String(o.waitingStatus != null && o.waitingStatus !== '' ? o.waitingStatus : '0');
+	var attendYes = String(o.attendYes != null && o.attendYes !== '' ? o.attendYes : '1');
 	var trainedStatus = String(o.trainedStatus != null && o.trainedStatus !== '' ? o.trainedStatus : '4');
 	var pad2 = function (n) { return (n < 10 ? '0' : '') + String(n); };
 	var y = d.getFullYear();
@@ -976,9 +977,8 @@ function buildQuickFilterPreset(presetKey, nowDate, opts) {
 	};
 
 	if (presetKey === 'today_waiting') {
-		fields.dateRange_type = '预约面试日期';
-		fields.dateRange = today + sep + today;
 		fields.status = waitingStatus;
+		fields.is_attend = attendYes;
 	} else if (presetKey === 'today_interviewed') {
 		fields.dateRange_type = '面试日期';
 		fields.dateRange = today + sep + today;
@@ -2014,9 +2014,8 @@ function formatNumberCopyText(row, mode) {
 		fitListTableHeight();
 	}
 
-	function resolveStatusOptionValue(form, label, fallback) {
-		var ctrls = findFormControlsByName(form, 'status');
-		var sel = ctrls.length ? ctrls[0] : null;
+	function resolveSelectOptionValue(form, fieldName, label, fallback) {
+		var sel = findVisibleFormControl(form, fieldName);
 		if (sel && sel.options) {
 			for (var i = 0; i < sel.options.length; i += 1) {
 				if (String(sel.options[i].text || sel.options[i].textContent || '').trim() === label) {
@@ -2123,8 +2122,9 @@ function formatNumberCopyText(row, mode) {
 				if (presetKey === 'reset' && clearListRowHighlights()) return;
 				var fields = buildQuickFilterPreset(presetKey, new Date(), {
 					rangeSep: ' ~ ',
-					waitingStatus: resolveStatusOptionValue(form, '等待面试', '0'),
-					trainedStatus: resolveStatusOptionValue(form, '已培训', '4'),
+					waitingStatus: resolveSelectOptionValue(form, 'status', '等待面试', '0'),
+					attendYes: resolveSelectOptionValue(form, 'is_attend', '是', '1'),
+					trainedStatus: resolveSelectOptionValue(form, 'status', '已培训', '4'),
 				});
 				applyListFilterValues(fields, presetKey === 'reset' ? '' : id);
 			});
