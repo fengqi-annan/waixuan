@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.3.2
+// @version      2.3.5
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.3.2 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.3.5 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.3.2';
+	var VERSION = '2.3.5';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -1654,7 +1654,7 @@ function formatNumberCopyText(row, mode) {
 		} catch (e) { /* ignore */ }
 	}
 
-	/** 统一「筛选」与「新增」按钮的高度、内边距、圆角与对齐，确保两枚按钮大小风格完全一致。 */
+	/** 统一「筛选」与「新增」按钮为 32px 紧凑高度，与同行输入框上下边缘严格齐平。 */
 	function styleUniformToolbarBtn(btn, fallbackText) {
 		if (!btn) return;
 		if (fallbackText && (!btn.children || !btn.children.length)) {
@@ -1664,12 +1664,12 @@ function formatNumberCopyText(row, mode) {
 		btn.style.display = 'inline-flex';
 		btn.style.alignItems = 'center';
 		btn.style.justifyContent = 'center';
-		btn.style.height = '38px';
-		btn.style.lineHeight = '38px';
-		btn.style.padding = '0 18px';
+		btn.style.height = '32px';
+		btn.style.lineHeight = '32px';
+		btn.style.padding = '0 15px';
 		btn.style.margin = '0';
-		btn.style.fontSize = '14px';
-		btn.style.borderRadius = '2px';
+		btn.style.fontSize = '13px';
+		btn.style.borderRadius = '4px';
 		btn.style.border = '1px solid transparent';
 		btn.style.boxSizing = 'border-box';
 		btn.style.whiteSpace = 'nowrap';
@@ -1687,9 +1687,11 @@ function formatNumberCopyText(row, mode) {
 	}
 
 	/**
-	 * 美化邀约列表顶部工具栏（去掉筛选按钮多余三点、统一筛选/新增按钮大小）：
-	 * - 独立列表页（isStandalone=true）：「筛选」移到「新增」左侧，整排对齐在三个胶囊正上方，使胶囊底边与「日期范围」输入框底边水平；
-	 * - /Home/Main 内嵌列表页（isStandalone=false）：「新增」移到「筛选」右侧并排，隐藏原右侧空栏以释放筛选区宽度。
+	 * 美化邀约列表顶部工具栏（严格双层架构 · 32px 统一高度 · 右侧固定主按钮）：
+	 * - 独立列表页与 /Home/Main 内嵌页统一将「筛选」「新增」并排固定在第 1 层右侧（.list-toolbar-right），去掉三点图标；
+	 * - 原 #search_btn_PageList 隐藏保留在 #search_form_PageList 内部，确保原生 jQuery 后代选择器回调 100% 有效；
+	 * - 隐藏冗余的「日期筛选：」静态文字标签，并为关键词框打上弹性伸缩标记；
+	 * - 独立页的「主/多/贴」胶囊统一迁入第 2 层（#dsh-quick-filter-bar）最右端，彻底消除宽屏右侧三排按钮失衡。
 	 */
 	function beautifyListToolbar(isStandalone) {
 		if (!document || !document.body || typeof document.querySelector !== 'function') return false;
@@ -1707,97 +1709,100 @@ function formatNumberCopyText(row, mode) {
 		if (!searchWrap || searchWrap === searchForm) searchWrap = searchBtn;
 
 		stripSearchDots(searchBtn);
+
+		// 1. 隐藏冗余的「日期筛选：」静态标签（避免 padding-top:8px 导致基线下沉且白占 72px 宽度）
+		var dateLbl = byId(document, 'label_');
+		if (dateLbl) {
+			var lblWrap = dateLbl;
+			while (lblWrap && lblWrap !== searchForm) {
+				if (String(lblWrap.className || '').indexOf('layui-input-inline') >= 0) break;
+				lblWrap = lblWrap.parentElement || lblWrap.parentNode;
+			}
+			if (lblWrap && lblWrap !== searchForm && lblWrap.style) {
+				lblWrap.style.display = 'none';
+				if (lblWrap.setAttribute) lblWrap.setAttribute('data-dsh-hidden-label', '1');
+			}
+		}
+
+		// 2. 给可见筛选项容器打上字段标记，配合 CSS 紧凑等比缩宽与关键词框弹性伸缩，让「日期范围」稳居第一行
+		var tagFields = ['organize_id', 'number', 'status', 'keywords', 'is_attend', 'interview_result', 'dateRange_type', 'dateRange'];
+		for (var ti = 0; ti < tagFields.length; ti += 1) {
+			var fWrap = findSearchFieldWrap(searchForm, tagFields[ti]);
+			if (fWrap && fWrap.setAttribute) fWrap.setAttribute('data-dsh-field', tagFields[ti]);
+		}
+
+		// 3. 保留原 #search_btn_PageList 在 #search_form_PageList 内（仅隐藏），右侧统一挂载代理「筛选」+「新增」
+		if (searchWrap.style) searchWrap.style.display = 'none';
+		if (searchWrap.setAttribute) searchWrap.setAttribute('data-dsh-hidden-search', '1');
+
 		var btnGroup = typeof toolbarRight.querySelector === 'function' ? toolbarRight.querySelector('.emt-btngroup') : null;
 		var addBtn = findAddBtn(btnGroup || toolbarRight);
 		if (!addBtn) addBtn = findAddBtn(searchForm);
 
-		if (isStandalone) {
-			// 保留原 #search_btn_PageList 在 #search_form_PageList 内（仅隐藏），确保页面自身 $('#search_form_PageList #search_btn_PageList') 绑定与刷新回调持续有效
-			if (searchWrap.style) searchWrap.style.display = 'none';
-			if (searchWrap.setAttribute) searchWrap.setAttribute('data-dsh-hidden-search', '1');
-
-			var groupHost = btnGroup || toolbarRight;
-			if (groupHost.style) {
-				groupHost.style.display = 'flex';
-				groupHost.style.alignItems = 'center';
-				groupHost.style.justifyContent = 'flex-end';
-				groupHost.style.gap = '8px';
-				groupHost.style.margin = '0';
-				groupHost.style.lineHeight = 'normal';
-			}
-
-			var proxy = byId(document, 'dsh-wx-search-proxy');
-			if (!proxy) {
-				proxy = document.createElement('button');
-				proxy.id = 'dsh-wx-search-proxy';
-				proxy.type = 'button';
-				proxy.className = 'layui-btn layui-btn-normal';
-				proxy.textContent = '筛选';
-				proxy.addEventListener('click', function (event) {
-					if (event && event.preventDefault) event.preventDefault();
-					if (event && event.stopPropagation) event.stopPropagation();
-					if (typeof searchBtn.click === 'function') searchBtn.click();
-				});
-				var syncProxy = function () {
-					var disabled = Boolean(searchBtn.disabled) || String(searchBtn.className || '').indexOf('layui-btn-disabled') >= 0;
-					proxy.disabled = disabled;
-					var cls = String(proxy.className || '').replace(/\blayui-btn-disabled\b/g, '').trim();
-					proxy.className = disabled ? (cls + ' layui-btn-disabled') : cls;
-				};
-				syncProxy();
-				if (typeof MutationObserver === 'function') {
-					try {
-						var mo = new MutationObserver(syncProxy);
-						mo.observe(searchBtn, { attributes: true, attributeFilter: ['class', 'disabled'] });
-					} catch (e) { /* ignore */ }
-				}
-				if (addBtn && addBtn.parentNode === groupHost) groupHost.insertBefore(proxy, addBtn);
-				else groupHost.appendChild(proxy);
-			}
-			styleUniformToolbarBtn(proxy, '筛选');
-			styleUniformToolbarBtn(addBtn, '新增');
-
-			if (toolbar && toolbar.style) toolbar.style.alignItems = 'flex-end';
-			if (toolbarRight.style) {
-				toolbarRight.style.display = 'flex';
-				toolbarRight.style.flexDirection = 'column';
-				toolbarRight.style.alignItems = 'flex-end';
-				toolbarRight.style.justifyContent = 'flex-end';
-				toolbarRight.style.gap = '6px';
-			}
-			var bar = byId(document, 'dsh-wx-standalone-bar');
-			if (bar && bar.parentNode === toolbarRight && btnGroup && btnGroup.parentNode === toolbarRight && toolbarRight.firstChild !== btnGroup) {
-				toolbarRight.insertBefore(btnGroup, bar);
-			}
-			if (toolbar && toolbar.setAttribute) toolbar.setAttribute('data-dsh-toolbar-mode', 'standalone');
-			return true;
+		var groupHost = btnGroup || toolbarRight;
+		if (groupHost.style) {
+			groupHost.style.display = 'flex';
+			groupHost.style.flexDirection = 'row';
+			groupHost.style.alignItems = 'center';
+			groupHost.style.justifyContent = 'flex-end';
+			groupHost.style.gap = '8px';
+			groupHost.style.margin = '0';
+			groupHost.style.lineHeight = 'normal';
+			groupHost.style.flexWrap = 'nowrap';
 		}
+		if (addBtn && addBtn.parentNode !== groupHost) groupHost.appendChild(addBtn);
 
-		// /Home/Main 内嵌 iframe：把「新增」移到「筛选」右边并排，两枚按钮大小风格统一，隐藏空出的右侧栏
-		if (searchWrap.style) {
-			searchWrap.style.display = 'inline-flex';
-			searchWrap.style.alignItems = 'center';
-			searchWrap.style.margin = '0';
-			searchWrap.style.padding = '0';
+		var proxy = byId(document, 'dsh-wx-search-proxy');
+		if (!proxy) {
+			proxy = document.createElement('button');
+			proxy.id = 'dsh-wx-search-proxy';
+			proxy.type = 'button';
+			proxy.className = 'layui-btn layui-btn-normal';
+			proxy.textContent = '筛选';
+			proxy.addEventListener('click', function (event) {
+				if (event && event.preventDefault) event.preventDefault();
+				if (event && event.stopPropagation) event.stopPropagation();
+				if (typeof searchBtn.click === 'function') searchBtn.click();
+			});
+			var syncProxy = function () {
+				var disabled = Boolean(searchBtn.disabled) || String(searchBtn.className || '').indexOf('layui-btn-disabled') >= 0;
+				proxy.disabled = disabled;
+				var cls = String(proxy.className || '').replace(/\blayui-btn-disabled\b/g, '').trim();
+				proxy.className = disabled ? (cls + ' layui-btn-disabled') : cls;
+			};
+			syncProxy();
+			if (typeof MutationObserver === 'function') {
+				try {
+					var mo = new MutationObserver(syncProxy);
+					mo.observe(searchBtn, { attributes: true, attributeFilter: ['class', 'disabled'] });
+				} catch (e) { /* ignore */ }
+			}
+			if (addBtn && addBtn.parentNode === groupHost) groupHost.insertBefore(proxy, addBtn);
+			else groupHost.appendChild(proxy);
 		}
-		var pair = typeof searchForm.querySelector === 'function' ? searchForm.querySelector('.dsh-wx-btn-pair') : null;
-		if (!pair) {
-			pair = document.createElement('div');
-			pair.className = 'layui-input-inline dsh-wx-btn-pair';
-			pair.style.cssText = 'display:inline-flex;align-items:center;gap:8px;width:auto;margin:0;flex-wrap:nowrap;';
-			if (searchWrap.parentNode) searchWrap.parentNode.insertBefore(pair, searchWrap);
-			else searchForm.appendChild(pair);
-			pair.appendChild(searchWrap);
-		}
-		if (addBtn && addBtn.parentNode !== pair) pair.appendChild(addBtn);
-		if (toolbarRight.style) toolbarRight.style.display = 'none';
-		styleUniformToolbarBtn(searchBtn, '筛选');
+		styleUniformToolbarBtn(proxy, '筛选');
 		styleUniformToolbarBtn(addBtn, '新增');
-		if (toolbar && toolbar.setAttribute) toolbar.setAttribute('data-dsh-toolbar-mode', 'embedded');
+
+		if (toolbar && toolbar.style) {
+			toolbar.style.alignItems = 'flex-end';
+			toolbar.style.gap = '10px';
+		}
+		if (toolbarRight.style) {
+			toolbarRight.style.display = 'flex';
+			toolbarRight.style.flexDirection = 'row';
+			toolbarRight.style.alignItems = 'center';
+			toolbarRight.style.justifyContent = 'flex-end';
+			toolbarRight.style.alignSelf = 'flex-end';
+			toolbarRight.style.gap = '8px';
+			toolbarRight.style.flex = 'none';
+		}
+		if (toolbar && toolbar.setAttribute) {
+			toolbar.setAttribute('data-dsh-toolbar-mode', isStandalone ? 'standalone' : 'embedded');
+		}
 		return true;
 	}
 
-	/** 单独打开列表页（没有外层页签条）时，挂一排小巧胶囊：主·仪表盘 / 多选·到场 / 贴·填表；有 .list-toolbar-right 时嵌入「筛选 / 新增」下方并对齐底部。 */
+	/** 单独打开列表页（没有外层页签条）时，挂一排 24px 高胶囊：主·仪表盘 / 多选·到场 / 贴·填表；列表页直接并入第 2 层快捷栏最右端。 */
 	function mountStandalonePill() {
 		if (!isTopFrame() || tabStrip()) return;
 		var path = '';
@@ -1815,8 +1820,9 @@ function formatNumberCopyText(row, mode) {
 			b.type = 'button';
 			b.textContent = text;
 			b.title = title;
-			b.style.cssText = 'padding:3px 10px;border-radius:999px;border:1px solid ' + borderColor + ';background:#fff;'
-				+ 'color:' + color + ';font-size:11px;font-weight:600;line-height:1.5;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);white-space:nowrap;';
+			b.style.cssText = 'height:24px;padding:0 10px;border-radius:999px;border:1px solid ' + borderColor + ';background:#fff;'
+				+ 'color:' + color + ';font-size:12px;font-weight:600;line-height:22px;box-sizing:border-box;display:inline-flex;align-items:center;'
+				+ 'cursor:pointer;white-space:nowrap;';
 			b.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); onClick(); });
 			return b;
 		};
@@ -1825,15 +1831,16 @@ function formatNumberCopyText(row, mode) {
 		bar.appendChild(mkPill('dsh-wx-multi-pill', '多选 · 到场', '开启/关闭多选条目，统一点击到场或撤销到场', '#6d28d9', 'rgba(109,40,217,.45)', toggleMultiSelect));
 		bar.appendChild(mkPill('dsh-wx-paste-pill', '贴 · 填表', '粘贴工作台「核心信息」一键填表（快捷键 Alt+Shift+V）', '#067', 'rgba(0,160,115,.45)', panel));
 
-		if (toolbarRight && typeof toolbarRight.appendChild === 'function') {
-			try {
-				toolbarRight.style.display = 'flex';
-				toolbarRight.style.flexDirection = 'column';
-				toolbarRight.style.alignItems = 'flex-end';
-				toolbarRight.style.justifyContent = 'flex-end';
-				toolbarRight.style.gap = '6px';
-			} catch (error) { /* ignore */ }
-			bar.style.cssText = 'display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:nowrap;margin:0;';
+		var qfBar = byId(document, 'dsh-quick-filter-bar');
+		var qfRight = qfBar && qfBar.querySelector ? qfBar.querySelector('.dsh-qf-right') : null;
+		if (qfRight) {
+			bar.style.cssText = 'display:inline-flex;align-items:center;gap:6px;flex-wrap:nowrap;margin:0;';
+			var sep = document.createElement('span');
+			sep.className = 'dsh-qf-sep';
+			qfRight.appendChild(sep);
+			qfRight.appendChild(bar);
+		} else if (toolbarRight && typeof toolbarRight.appendChild === 'function') {
+			bar.style.cssText = 'display:inline-flex;align-items:center;gap:6px;flex-wrap:nowrap;margin:0;';
 			toolbarRight.appendChild(bar);
 			beautifyListToolbar(true);
 		} else {
@@ -1846,7 +1853,8 @@ function formatNumberCopyText(row, mode) {
 	}
 
 	/* ==================================================================
-	 * 邀约列表页增强（v2.3.1）：
+	 * 邀约列表页增强（v2.3.3）：
+	 *   - A3：折叠隐藏低频筛选项（面试官、性别、面试岗位、招聘渠道），按钮「展开/收起过滤条件」含非空防藏保护
 	 *   - B1+B2：快捷筛选胶囊（今日待面 / 今日已面 / 本月入职 / 重置）
 	 *   - B3：搜索框回车直筛（含 IME 保护与 page.* 同步）
 	 *   - #4：表格 14 列精简展示与严格排序（固定右侧操作列保持不动）
@@ -1854,6 +1862,8 @@ function formatNumberCopyText(row, mode) {
 	 *   - C4：序号按「月序号 / 仅序号 / 报序号」模式轻点复制；微信/BOSS/姓名轻点即复制
 	 * ================================================================== */
 
+	var LIST_FILTER_FOLD_KEY = 'wx-invite-helper-list-filter-folded';
+	var LIST_FOLD_FIELDS = ['interviewer', 'gender', 'post', 'zp_channel'];
 	var LIST_NUM_COPY_MODE_KEY = 'wx-invite-helper-num-copy-mode';
 	var LIST_COL_MODE_KEY = 'wx-invite-helper-list-col-mode';
 	var LIST_COPY_FIELDS = { number_code: true, wechat_username: true, wechat_user_id: true, boss_username: true, real_name: true };
@@ -1877,16 +1887,32 @@ function formatNumberCopyText(row, mode) {
 		var style = document.createElement('style');
 		style.id = 'dsh-list-enhance-styles';
 		style.textContent = ''
-			+ '#dsh-quick-filter-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid #eef2f6;font-size:12px}'
+			+ '.layui-elem-quote{padding:8px 10px!important;margin-top:6px!important;margin-bottom:6px!important}'
+			+ '#search_form_PageList{display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:6px!important;margin:0!important}'
+			+ '#search_form_PageList .layui-input-inline{margin:0!important;display:inline-flex;align-items:center}'
+			+ '#search_form_PageList .layui-input-inline[data-dsh-field] .layui-input,#search_form_PageList .layui-input-inline[data-dsh-field] .layui-form-select{width:100%!important;box-sizing:border-box!important}'
+			+ '#search_form_PageList .layui-input-inline[data-dsh-field="organize_id"]{width:108px!important}'
+			+ '#search_form_PageList .layui-input-inline[data-dsh-field="number"]{width:84px!important}'
+			+ '#search_form_PageList .layui-input-inline[data-dsh-field="status"]{width:102px!important}'
+			+ '#search_form_PageList .layui-input-inline[data-dsh-field="keywords"]{flex:1 1 150px!important;min-width:140px!important;max-width:240px!important;width:auto!important}'
+			+ '#search_form_PageList .layui-input-inline[data-dsh-field="keywords"] .input-group,#search_form_PageList #keywords{width:100%!important}'
+			+ '#search_form_PageList .layui-input-inline[data-dsh-field="is_attend"]{width:96px!important}'
+			+ '#search_form_PageList .layui-input-inline[data-dsh-field="interview_result"]{width:108px!important}'
+			+ '#search_form_PageList .layui-input-inline[data-dsh-field="dateRange_type"]{width:116px!important}'
+			+ '#search_form_PageList .layui-input-inline[data-dsh-field="dateRange"]{width:130px!important}'
+			+ '#search_form_PageList .layui-input,#search_form_PageList .layui-select-title input{height:32px!important;line-height:32px!important;font-size:13px!important;border-radius:4px!important}'
+			+ '#search_form_PageList .layui-form-select dl{top:35px!important}'
+			+ '#dsh-quick-filter-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;margin-top:6px;padding-top:6px;border-top:1px solid #eef2f6;font-size:12px}'
 			+ '#dsh-quick-filter-bar .dsh-qf-left,#dsh-quick-filter-bar .dsh-qf-right{display:flex;flex-wrap:wrap;align-items:center;gap:6px}'
-			+ '#dsh-quick-filter-bar .dsh-qf-label{color:#64748b;font-weight:600;margin-right:2px}'
-			+ '#dsh-quick-filter-bar .dsh-qf-btn{padding:2px 10px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:12px;line-height:1.6;cursor:pointer;transition:all .15s;white-space:nowrap}'
+			+ '#dsh-quick-filter-bar .dsh-qf-label{color:#64748b;font-weight:600;margin-right:2px;line-height:24px}'
+			+ '#dsh-quick-filter-bar .dsh-qf-sep{width:1px;height:14px;background:#cbd5e1;margin:0 2px;flex:none;display:inline-block}'
+			+ '#dsh-quick-filter-bar .dsh-qf-btn{height:24px;padding:0 10px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:12px;line-height:22px;box-sizing:border-box;display:inline-flex;align-items:center;cursor:pointer;transition:all .15s;white-space:nowrap}'
 			+ '#dsh-quick-filter-bar .dsh-qf-btn:hover{border-color:#1677ff;color:#1677ff;background:#eff6ff}'
 			+ '#dsh-quick-filter-bar .dsh-qf-btn.is-active{background:#1677ff;border-color:#1677ff;color:#fff;font-weight:600}'
 			+ '#dsh-quick-filter-bar .dsh-qf-btn.is-reset{color:#64748b;border-color:#e2e8f0}'
 			+ '#dsh-quick-filter-bar .dsh-qf-btn.is-reset:hover{color:#dc2626;border-color:#fca5a5;background:#fef2f2}'
-			+ '#dsh-quick-filter-bar .dsh-seg-group{display:inline-flex;align-items:center;border:1px solid #cbd5e1;border-radius:999px;background:#fff;overflow:hidden}'
-			+ '#dsh-quick-filter-bar .dsh-seg-btn{padding:2px 9px;border:0;border-right:1px solid #e2e8f0;background:transparent;color:#334155;font-size:12px;line-height:1.6;cursor:pointer;transition:all .15s;white-space:nowrap}'
+			+ '#dsh-quick-filter-bar .dsh-seg-group{height:24px;box-sizing:border-box;display:inline-flex;align-items:center;border:1px solid #cbd5e1;border-radius:999px;background:#fff;overflow:hidden}'
+			+ '#dsh-quick-filter-bar .dsh-seg-btn{height:22px;padding:0 9px;border:0;border-right:1px solid #e2e8f0;background:transparent;color:#334155;font-size:12px;line-height:22px;display:inline-flex;align-items:center;cursor:pointer;transition:all .15s;white-space:nowrap}'
 			+ '#dsh-quick-filter-bar .dsh-seg-btn:last-child{border-right:0}'
 			+ '#dsh-quick-filter-bar .dsh-seg-btn:hover{color:#1677ff;background:#eff6ff}'
 			+ '#dsh-quick-filter-bar .dsh-seg-btn.is-active{background:#1677ff;color:#fff;font-weight:600}'
@@ -1913,6 +1939,14 @@ function formatNumberCopyText(row, mode) {
 		}
 	}
 
+	function readListFilterFolded() {
+		try {
+			var v = window.localStorage.getItem(LIST_FILTER_FOLD_KEY);
+			if (v === '0') return false;
+		} catch (e) { /* ignore */ }
+		return true;
+	}
+
 	function readListColMode() {
 		try {
 			var v = window.localStorage.getItem(LIST_COL_MODE_KEY);
@@ -1931,6 +1965,53 @@ function formatNumberCopyText(row, mode) {
 			if (n === fieldName) out.push(el);
 		}
 		return out;
+	}
+
+	function findVisibleFormControl(form, fieldName) {
+		var list = findFormControlsByName(form, fieldName);
+		for (var i = 0; i < list.length; i += 1) {
+			var t = String((list[i].getAttribute && list[i].getAttribute('type')) || list[i].type || '').toLowerCase();
+			if (t !== 'hidden') return list[i];
+		}
+		return list.length ? list[0] : null;
+	}
+
+	function findSearchFieldWrap(form, fieldName) {
+		var el = findVisibleFormControl(form, fieldName);
+		if (!el) return null;
+		var cur = el;
+		while (cur && cur !== form) {
+			if (String(cur.className || '').indexOf('layui-input-inline') >= 0) return cur;
+			cur = cur.parentElement || cur.parentNode;
+		}
+		return el.parentElement || el.parentNode || el;
+	}
+
+	function applyListFilterFold() {
+		var form = byId(document, 'search_form_PageList');
+		if (!form) return;
+		var folded = readListFilterFolded();
+		var activeCount = 0;
+		for (var i = 0; i < LIST_FOLD_FIELDS.length; i += 1) {
+			var fname = LIST_FOLD_FIELDS[i];
+			var wrap = findSearchFieldWrap(form, fname);
+			if (!wrap || !wrap.style) continue;
+			var ctrl = findVisibleFormControl(form, fname);
+			var hasVal = Boolean(ctrl && String(ctrl.value || '').trim());
+			if (hasVal) activeCount += 1;
+			// 非空防藏保护：被折叠项若当前有值，保持可见以免“隐形筛选”误导
+			wrap.style.display = (folded && !hasVal) ? 'none' : '';
+			if (wrap.setAttribute) wrap.setAttribute('data-dsh-fold-field', fname);
+		}
+		var foldBtn = byId(document, 'dsh-filter-fold-btn');
+		if (foldBtn) {
+			if (folded) {
+				foldBtn.textContent = activeCount > 0 ? ('展开过滤条件(已选' + activeCount + ') ▾') : '展开过滤条件 ▾';
+			} else {
+				foldBtn.textContent = '收起过滤条件 ▴';
+			}
+		}
+		fitListTableHeight();
 	}
 
 	function resolveStatusOptionValue(form, label, fallback) {
@@ -1968,7 +2049,7 @@ function formatNumberCopyText(row, mode) {
 				setClassFlag(qBtns[j], 'is-active', Boolean(activeBtnId && qBtns[j].id === activeBtnId));
 			}
 		}
-		fitListTableHeight();
+		applyListFilterFold();
 
 		// 2. 通过 runInPage 在页面原生上下文同步 window.page.<field> + layui.form.render + 触发筛选
 		var payload = JSON.stringify(fields);
@@ -2036,6 +2117,26 @@ function formatNumberCopyText(row, mode) {
 		left.appendChild(mkPreset('dsh-qf-month-joined', '本月入职', 'month_joined', ''));
 		left.appendChild(mkPreset('dsh-qf-reset', '重置', 'reset', 'is-reset'));
 
+		var addSep = function () {
+			var s = document.createElement('span');
+			s.className = 'dsh-qf-sep';
+			right.appendChild(s);
+		};
+
+		var foldBtn = document.createElement('button');
+		foldBtn.id = 'dsh-filter-fold-btn';
+		foldBtn.type = 'button';
+		foldBtn.className = 'dsh-qf-btn';
+		foldBtn.title = '展开或收起「面试官」「性别」「面试岗位」「招聘渠道」四个低频筛选项';
+		foldBtn.addEventListener('click', function (e) {
+			if (e && e.preventDefault) e.preventDefault();
+			var next = !readListFilterFolded();
+			try { window.localStorage.setItem(LIST_FILTER_FOLD_KEY, next ? '1' : '0'); } catch (err) { /* ignore */ }
+			applyListFilterFold();
+		});
+		right.appendChild(foldBtn);
+		addSep();
+
 		var segGroup = document.createElement('div');
 		segGroup.id = 'dsh-num-copy-group';
 		segGroup.className = 'dsh-seg-group';
@@ -2058,6 +2159,7 @@ function formatNumberCopyText(row, mode) {
 		segGroup.appendChild(mkNumMode('only', '仅序号', '点击序号复制时去掉 yymm- 前缀（仅复制编号数字）'));
 		segGroup.appendChild(mkNumMode('report', '报序号', '点击序号复制 姓名+月序号（姓名取 真实姓名 > 微信名 > BOSS名称，如 张三2611-12）'));
 		right.appendChild(segGroup);
+		addSep();
 
 		var colBtn = document.createElement('button');
 		colBtn.id = 'dsh-col-mode-btn';
@@ -2072,6 +2174,14 @@ function formatNumberCopyText(row, mode) {
 			fitListTableHeight();
 		});
 		right.appendChild(colBtn);
+
+		// 独立列表页：若已创建「主 / 多 / 贴」胶囊条，直接迁入第 2 层最右端（消灭原右侧三排按钮高塔）
+		var standaloneBar = byId(document, 'dsh-wx-standalone-bar');
+		if (standaloneBar && standaloneBar.parentNode !== right) {
+			addSep();
+			standaloneBar.style.cssText = 'display:inline-flex;align-items:center;gap:6px;flex-wrap:nowrap;margin:0;';
+			right.appendChild(standaloneBar);
+		}
 
 		bar.appendChild(left);
 		bar.appendChild(right);
@@ -2361,6 +2471,7 @@ function formatNumberCopyText(row, mode) {
 		if (!byId(document, 'search_form_PageList')) return false;
 		ensureListEnhanceStyles();
 		mountQuickFilterBar();
+		applyListFilterFold();
 		syncNumCopyModeUi();
 		bindSearchEnter();
 		bindListCellCopy();
