@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.3.9
+// @version      2.4.0
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.3.9 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.4.0 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.3.9';
+	var VERSION = '2.4.0';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -1333,19 +1333,23 @@ function formatNumberCopyText(row, mode) {
 		var style = document.createElement('style');
 		style.id = 'dsh-main-compact-styles';
 		style.textContent = ''
-			+ '.header{height:42px!important}'
-			+ '.header-left{height:42px!important}'
+			+ '.header{height:44px!important;padding:0 20px 0 0!important}'
+			+ '.header-left{height:44px!important;flex:none!important}'
+			+ '.header-nav-controls{margin-left:14px!important;gap:10px!important}'
+			+ '.header-right{flex:none!important;gap:14px!important}'
 			+ '.header-avatar{width:30px!important;height:30px!important;font-size:14px!important}'
 			+ '.nav-control-btn{width:28px!important;height:28px!important;font-size:15px!important}'
-			+ '.sidebar-logo{height:42px!important;margin-bottom:4px!important}'
-			+ '.sidebar-section{max-height:calc(100vh - 42px - 40px)!important}'
-			+ '.layadmin-pagetabs{top:42px!important;height:36px!important;line-height:36px!important}'
-			+ '.layadmin-pagetabs .layadmin-tabs-control{line-height:36px!important}'
-			+ '.layadmin-pagetabs .layui-tab-title{height:36px!important}'
-			+ '.layadmin-pagetabs .layui-tab-title li{line-height:36px!important}'
-			+ '.layadmin-tabs-select.layui-nav .layui-nav-item,.layadmin-tabs-select.layui-nav .layui-nav-item>a{line-height:36px!important;height:36px!important}'
-			+ '.layadmin-tabs-select.layui-nav .layui-nav-child{top:36px!important}'
-			+ '.layui-layout-admin .layui-body{top:78px!important}'
+			+ '.sidebar-logo{height:44px!important;margin-bottom:4px!important}'
+			+ '.sidebar-section{max-height:calc(100vh - 44px - 40px)!important}'
+			+ '#LAY_app_tabs.dsh-merged-tabs{position:relative!important;top:auto!important;left:auto!important;right:auto!important;flex:1 1 auto!important;min-width:0!important;width:auto!important;height:44px!important;line-height:44px!important;margin:0 12px 0 14px!important;padding:0 74px 0 0!important;background:transparent!important;box-shadow:none!important;border-left:1px solid rgba(148,163,184,.28)!important}'
+			+ '#LAY_app_tabs.dsh-merged-tabs.sidebar-collapsed{left:auto!important;width:auto!important}'
+			+ '#LAY_app_tabs.dsh-merged-tabs .layadmin-tabs-control{width:36px!important;height:44px!important;line-height:44px!important;border-left:1px solid rgba(148,163,184,.2)!important}'
+			+ '#LAY_app_tabs.dsh-merged-tabs .layui-tab-title{height:44px!important;background:transparent!important}'
+			+ '#LAY_app_tabs.dsh-merged-tabs .layui-tab-title li{height:44px!important;line-height:44px!important;border-right:1px solid rgba(148,163,184,.2)!important;color:#475569!important}'
+			+ '#LAY_app_tabs.dsh-merged-tabs .layui-tab-title li.layui-this,#LAY_app_tabs.dsh-merged-tabs .layui-tab-title li:hover{background:rgba(255,255,255,.72)!important;color:#1e293b!important}'
+			+ '#LAY_app_tabs.dsh-merged-tabs .layadmin-tabs-select.layui-nav .layui-nav-item,#LAY_app_tabs.dsh-merged-tabs .layadmin-tabs-select.layui-nav .layui-nav-item>a{line-height:44px!important;height:44px!important}'
+			+ '#LAY_app_tabs.dsh-merged-tabs .layadmin-tabs-select.layui-nav .layui-nav-child{top:44px!important}'
+			+ '.layui-layout-admin .layui-body{top:44px!important}'
 			+ '#header-phone-btn{display:none!important}';
 		try { host.appendChild(style); } catch (e) { /* ignore */ }
 	}
@@ -1357,10 +1361,22 @@ function formatNumberCopyText(row, mode) {
 		// 隐藏页签条左右翻页箭头（`<<`/`>>`：顶栏刷新左侧已有收起侧边栏；`>` 会与「＋」重合）
 		hideElementImportant(strip.querySelector ? strip.querySelector('.layadmin-tabs-control.layui-icon-prev') : null);
 		hideElementImportant(strip.querySelector ? strip.querySelector('.layadmin-tabs-control.layui-icon-next') : null);
+
+		// 将 /Home/Main 顶部两栏合并为单栏：把 #LAY_app_tabs 移入 .header 中间（.header-left 与 .header-right 之间）
+		var headerBar = document.querySelector ? document.querySelector('.header') : null;
+		var headerRight = headerBar && headerBar.querySelector ? headerBar.querySelector('.header-right') : null;
+		var merged = false;
+		if (headerBar && typeof headerBar.insertBefore === 'function') {
+			merged = true;
+			if (strip.parentNode !== headerBar) {
+				try { headerBar.insertBefore(strip, headerRight || null); } catch (e) { /* ignore */ }
+			}
+			setClassFlag(strip, 'dsh-merged-tabs', true);
+		}
 		try {
 			if (strip.style) {
 				strip.style.paddingLeft = '0';
-				strip.style.paddingRight = '160px';
+				strip.style.paddingRight = '74px';
 			}
 		} catch (error) { /* ignore */ }
 
@@ -1398,7 +1414,7 @@ function formatNumberCopyText(row, mode) {
 			btn.className = 'layui-icon layadmin-tabs-control dsh-dup-tab';
 			btn.title = '复制这个页签（同一个页面可以开多个，各自设筛选条件）';
 			btn.textContent = '＋';
-			btn.style.cssText = 'right:40px;font-family:inherit;font-size:17px;font-weight:700;line-height:36px;cursor:pointer;';
+			btn.style.cssText = 'right:36px;font-family:inherit;font-size:17px;font-weight:700;line-height:' + (merged ? '44px' : '36px') + ';cursor:pointer;';
 			btn.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); duplicate(null); });
 			strip.appendChild(btn);
 			if (header && !header.__dshCtxBound) {
@@ -1415,25 +1431,10 @@ function formatNumberCopyText(row, mode) {
 			}
 			console.log('[邀约助手] 页签条上的「＋」挂好了：点它复制当前页签，或在某个页签上点右键');
 		}
-		var oldHomeBtn = strip.querySelector ? strip.querySelector('.dsh-home-tab') : null;
-		if (oldHomeBtn && oldHomeBtn.parentNode) oldHomeBtn.parentNode.removeChild(oldHomeBtn);
-		if (!strip.querySelector('.dsh-paste-tab')) {
-			var pasteBtn = document.createElement('div');
-			pasteBtn.className = 'layui-icon layadmin-tabs-control dsh-paste-tab';
-			pasteBtn.title = '粘贴工作台「核心信息」一键填表（快捷键 Alt+Shift+V）';
-			pasteBtn.textContent = '贴';
-			pasteBtn.style.cssText = 'right:80px;font-family:inherit;font-size:13px;font-weight:700;line-height:36px;color:#0a7;cursor:pointer;';
-			pasteBtn.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); panel(); });
-			strip.appendChild(pasteBtn);
-		}
-		if (!strip.querySelector('.dsh-multi-tab')) {
-			var multiBtn = document.createElement('div');
-			multiBtn.className = 'layui-icon layadmin-tabs-control dsh-multi-tab';
-			multiBtn.title = '多选条目统一到场 / 撤销到场';
-			multiBtn.textContent = '多';
-			multiBtn.style.cssText = 'right:120px;font-family:inherit;font-size:13px;font-weight:700;line-height:36px;color:#6d28d9;cursor:pointer;';
-			multiBtn.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); toggleMultiFromTop(); });
-			strip.appendChild(multiBtn);
+		var rmSelectors = ['.dsh-home-tab', '.dsh-paste-tab', '.dsh-multi-tab'];
+		for (var ri = 0; ri < rmSelectors.length; ri += 1) {
+			var oldCtrl = strip.querySelector ? strip.querySelector(rmSelectors[ri]) : null;
+			if (oldCtrl && oldCtrl.parentNode) oldCtrl.parentNode.removeChild(oldCtrl);
 		}
 		if (header) setupTabInteractions(header);
 		var oldBar = byId(document, 'dsh-wx-standalone-bar');
@@ -1802,7 +1803,7 @@ function formatNumberCopyText(row, mode) {
 		return true;
 	}
 
-	/** 单独打开列表页（没有外层页签条）时，挂一排 24px 高胶囊：主·仪表盘 / 多选·到场 / 贴·填表；列表页直接并入第 2 层快捷栏最右端。 */
+	/** 单独打开列表页（没有外层页签条）时，仅保留「仪表盘」胶囊（多选合并进标蓝行，粘贴可用 Alt+Shift+V）。 */
 	function mountStandalonePill() {
 		if (!isTopFrame() || tabStrip()) return;
 		var path = '';
@@ -1827,9 +1828,7 @@ function formatNumberCopyText(row, mode) {
 			return b;
 		};
 
-		bar.appendChild(mkPill('dsh-wx-home-pill', '主 · 仪表盘', '打开主页数据仪表盘', '#1677ff', 'rgba(22,119,255,.45)', openHomeModal));
-		bar.appendChild(mkPill('dsh-wx-multi-pill', '多选 · 到场', '开启/关闭多选条目，统一点击到场或撤销到场', '#6d28d9', 'rgba(109,40,217,.45)', toggleMultiSelect));
-		bar.appendChild(mkPill('dsh-wx-paste-pill', '贴 · 填表', '粘贴工作台「核心信息」一键填表（快捷键 Alt+Shift+V）', '#067', 'rgba(0,160,115,.45)', panel));
+		bar.appendChild(mkPill('dsh-wx-home-pill', '仪表盘', '打开主页数据仪表盘', '#1677ff', 'rgba(22,119,255,.45)', openHomeModal));
 
 		var qfBar = byId(document, 'dsh-quick-filter-bar');
 		var qfRight = qfBar && qfBar.querySelector ? qfBar.querySelector('.dsh-qf-right') : null;
@@ -1846,10 +1845,9 @@ function formatNumberCopyText(row, mode) {
 		} else {
 			bar.style.cssText = 'position:fixed;top:6px;right:12px;z-index:99990;display:flex;align-items:center;gap:6px;opacity:.68;transition:opacity .15s;';
 			bar.addEventListener('mouseenter', function () { bar.style.opacity = '1'; });
-			bar.addEventListener('mouseleave', function () { if (!multiState.active) bar.style.opacity = '.68'; });
+			bar.addEventListener('mouseleave', function () { bar.style.opacity = '.68'; });
 			document.body.appendChild(bar);
 		}
-		syncMultiButtons();
 	}
 
 	/* ==================================================================
@@ -2075,7 +2073,7 @@ function formatNumberCopyText(row, mode) {
 	}
 
 	function clearListRowHighlights() {
-		var view = findListTableView();
+		var view = findListTableView() || document;
 		var cleared = false;
 		if (view && view.querySelectorAll) {
 			var allRows = view.querySelectorAll('tr');
@@ -3799,7 +3797,7 @@ function formatNumberCopyText(row, mode) {
 		}
 		postSelect.value = dashState.post;
 		var goalInput = h('input', { type: 'number', id: 'dsh-hm-goal-input', className: 'dsh-input', min: '1', step: '1', css: 'width:68px', value: String(dashState.goal) });
-		var monthInput = h('input', { type: 'month', id: 'dsh-hm-month-input', className: 'dsh-input', value: dashState.month });
+		var monthInput = h('input', { type: 'month', id: 'dsh-hm-month-input', className: 'dsh-input', css: 'width:118px', value: dashState.month });
 		var dayTodayBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-today', text: '今天' });
 		var dayYestBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-yest', text: '昨天' });
 		var dayBeforeBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-before', text: '前天' });
@@ -4118,74 +4116,12 @@ function formatNumberCopyText(row, mode) {
 	}
 
 	/* ==================================================================
-	 * 多选到场 / 撤销到场（跨顶层「多」与独立页「多选 · 到场」）
+	 * 多选到场 / 撤销到场（直接复用行标蓝 list-row-selected，选中多行后点任一行「到场/撤销到场」即可批量提交）
 	 * ================================================================== */
 
 	var multiState = {
-		active: false,
 		running: false,
-		selected: {},
-		observer: null,
 	};
-
-	function selectedKeys() {
-		return Object.keys(multiState.selected).filter(function (k) { return Boolean(multiState.selected[k]); });
-	}
-
-	function syncMultiButtons() {
-		var topBtn = document.querySelector && document.querySelector('.dsh-multi-tab');
-		if (topBtn && topBtn.style) {
-			topBtn.style.background = multiState.active ? '#6d28d9' : '';
-			topBtn.style.color = multiState.active ? '#fff' : '#6d28d9';
-		}
-		var pillBtn = byId(document, 'dsh-wx-multi-pill');
-		if (pillBtn && pillBtn.style) {
-			pillBtn.style.background = multiState.active ? '#6d28d9' : 'rgba(255,255,255,.92)';
-			pillBtn.style.color = multiState.active ? '#fff' : '#6d28d9';
-		}
-		var bar = byId(document, 'dsh-wx-standalone-bar');
-		if (bar && bar.style && multiState.active) bar.style.opacity = '1';
-	}
-
-	function postFrameMsg(win, payload) {
-		if (!win || typeof win.postMessage !== 'function') return;
-		win.postMessage('__dsh_wx_msg__:' + JSON.stringify(payload || {}), '*');
-	}
-
-	function parseFrameMsg(raw) {
-		if (typeof raw === 'string' && raw.indexOf('__dsh_wx_msg__:') === 0) {
-			try { return JSON.parse(raw.slice('__dsh_wx_msg__:'.length)); } catch (e) { return null; }
-		}
-		return (raw && typeof raw === 'object') ? raw : null;
-	}
-
-	function notifyTopMultiState() {
-		syncMultiButtons();
-		try {
-			if (window.top && window.top !== window && typeof window.top.postMessage === 'function') {
-				postFrameMsg(window.top, { type: 'dsh-wx-multi-state', active: multiState.active });
-			}
-		} catch (error) { /* ignore */ }
-	}
-
-	function toggleMultiFromTop() {
-		var appBody = byId(document, 'LAY_app_body');
-		var items = bodyItemsOf(appBody);
-		var activePane = null;
-		for (var i = 0; i < items.length; i += 1) {
-			if (String(items[i].className || '').indexOf('layui-show') >= 0) { activePane = items[i]; break; }
-		}
-		var iframe = activePane && activePane.querySelector ? activePane.querySelector('iframe') : null;
-		if (!iframe || !iframe.contentWindow) {
-			toast('请先切到「邀约列表」页签再开启多选', true);
-			return;
-		}
-		try {
-			postFrameMsg(iframe.contentWindow, { type: 'dsh-wx-toggle-multi' });
-		} catch (error) {
-			toast('无法通知当前页签开启多选：' + error, true);
-		}
-	}
 
 	function tableMainRows() {
 		var rows = [];
@@ -4225,145 +4161,20 @@ function formatNumberCopyText(row, mode) {
 		return typeof fallbackIdx === 'number' ? String(fallbackIdx) : '';
 	}
 
-	function decorateMultiRows() {
+	function highlightedRowKeys() {
 		var rows = tableMainRows();
-		var validKeys = {};
+		var keys = [];
+		var seen = {};
 		for (var i = 0; i < rows.length; i += 1) {
 			var tr = rows[i];
-			var key = rowKeyOf(tr, i);
-			validKeys[key] = true;
-			var firstTd = tr.querySelector ? tr.querySelector('td') : null;
-			if (!firstTd) continue;
-			var chk = firstTd.querySelector ? firstTd.querySelector('.dsh-multi-chk') : null;
-			if (multiState.active) {
-				if (!chk) {
-					chk = document.createElement('input');
-					chk.type = 'checkbox';
-					chk.className = 'dsh-multi-chk';
-					chk.setAttribute('data-dsh-key', key);
-					chk.style.cssText = 'width:15px;height:15px;margin-right:6px;vertical-align:middle;cursor:pointer;accent-color:#6d28d9;';
-					chk.addEventListener('change', function (e) {
-						var box = e && e.target;
-						var k = box && box.getAttribute ? box.getAttribute('data-dsh-key') : '';
-						if (!k) return;
-						if (box.checked) multiState.selected[k] = true;
-						else delete multiState.selected[k];
-						refreshMultiUi();
-					});
-					firstTd.insertBefore(chk, firstTd.firstChild || null);
-				}
-				chk.checked = Boolean(multiState.selected[key]);
-			} else if (chk && chk.parentNode) {
-				chk.parentNode.removeChild(chk);
+			if (String(tr.className || '').indexOf('list-row-selected') < 0) continue;
+			var k = rowKeyOf(tr, i);
+			if (k !== '' && !seen[k]) {
+				seen[k] = true;
+				keys.push(k);
 			}
 		}
-		// 清理翻页/重载后已不在当前表中的勾选状态
-		Object.keys(multiState.selected).forEach(function (k) {
-			if (!validKeys[k]) delete multiState.selected[k];
-		});
-		// 同步主表与固定列（fixed-r / fixed-l）的行高亮
-		try {
-			var allTr = document.querySelectorAll ? document.querySelectorAll('tbody tr') : [];
-			for (var j = 0; j < allTr.length; j += 1) {
-				var row = allTr[j];
-				var k = row.getAttribute ? row.getAttribute('data-index') : null;
-				if (k == null || k === '') {
-					var mIdx = rows.indexOf(row);
-					k = mIdx >= 0 ? String(mIdx) : '';
-				}
-				var on = multiState.active && k !== '' && Boolean(multiState.selected[k]);
-				if (row.style) row.style.backgroundColor = on ? '#ede9fe' : '';
-			}
-		} catch (error) { /* ignore */ }
-	}
-
-	function ensureMultiBar() {
-		var existing = byId(document, 'dsh-multi-bar');
-		if (!multiState.active) {
-			if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
-			return;
-		}
-		if (!existing && document.body) {
-			existing = document.createElement('div');
-			existing.id = 'dsh-multi-bar';
-			existing.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99995;'
-				+ 'display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;'
-				+ 'background:#2e1065;color:#fff;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.28);white-space:nowrap;';
-			var txt = document.createElement('span');
-			txt.id = 'dsh-multi-count';
-			var mkBtn = function (id, label, bg, fn) {
-				var b = document.createElement('button');
-				b.id = id;
-				b.type = 'button';
-				b.textContent = label;
-				b.style.cssText = 'padding:3px 9px;border-radius:999px;border:0;background:' + bg + ';color:#fff;font-size:11px;cursor:pointer;';
-				b.addEventListener('click', function (e) { e.stopPropagation(); fn(); });
-				return b;
-			};
-			existing.appendChild(txt);
-			existing.appendChild(mkBtn('dsh-multi-attend', '批量到场', '#10b981', function () {
-				triggerBatchAction('到场', false);
-			}));
-			existing.appendChild(mkBtn('dsh-multi-unattend', '批量撤销到场', '#f59e0b', function () {
-				triggerBatchAction('撤销到场', false);
-			}));
-			existing.appendChild(mkBtn('dsh-multi-all', '全选本页', 'rgba(255,255,255,.18)', function () {
-				var rows = tableMainRows();
-				for (var i = 0; i < rows.length; i += 1) multiState.selected[rowKeyOf(rows[i], i)] = true;
-				refreshMultiUi();
-			}));
-			existing.appendChild(mkBtn('dsh-multi-clear', '清空', 'rgba(255,255,255,.18)', function () {
-				multiState.selected = {};
-				refreshMultiUi();
-			}));
-			existing.appendChild(mkBtn('dsh-multi-exit', '退出多选', '#ef4444', function () {
-				setMultiActive(false);
-			}));
-			document.body.appendChild(existing);
-		}
-		var countEl = byId(document, 'dsh-multi-count');
-		if (countEl) {
-			var n = selectedKeys().length;
-			countEl.textContent = multiState.running
-				? '正在批量提交中，请稍候…'
-				: ('多选：已选 ' + n + ' 条（点行勾选后，点「批量到场/撤销」或任一行「到场/撤销到场」）');
-		}
-	}
-
-	function refreshMultiUi() {
-		decorateMultiRows();
-		ensureMultiBar();
-		notifyTopMultiState();
-	}
-
-	function setMultiActive(on) {
-		multiState.active = Boolean(on);
-		if (!multiState.active) {
-			multiState.selected = {};
-			if (multiState.observer) {
-				try { multiState.observer.disconnect(); } catch (error) { /* ignore */ }
-				multiState.observer = null;
-			}
-		} else if (typeof MutationObserver === 'function' && document.body && !multiState.observer) {
-			try {
-				multiState.observer = new MutationObserver(function () {
-					if (multiState.active && !multiState.running) decorateMultiRows();
-				});
-				multiState.observer.observe(document.body, { childList: true, subtree: true });
-			} catch (error) { /* ignore */ }
-		}
-		refreshMultiUi();
-		if (multiState.active && !tableMainRows().length) {
-			toast('当前页未检测到列表行，请在「邀约列表」页面使用多选', true);
-		}
-	}
-
-	function toggleMultiSelect() {
-		if (multiState.running) {
-			toast('正在批量处理中，请稍候…', true);
-			return;
-		}
-		setMultiActive(!multiState.active);
+		return keys;
 	}
 
 	function btnTextOf(el) {
@@ -4584,7 +4395,6 @@ function formatNumberCopyText(row, mode) {
 
 	function runBatchAttend(targets, actionText) {
 		multiState.running = true;
-		ensureMultiBar();
 		var cacheRows = readTableCacheRows();
 		var hasFallback = false;
 		for (var t = 0; t < targets.length; t += 1) {
@@ -4607,8 +4417,7 @@ function formatNumberCopyText(row, mode) {
 				runInPage('window.__dshBatchMode=false;try{if(window.layer&&layer.closeAll)layer.closeAll("loading");}catch(e){}try{if(window.parent&&parent.layer&&parent.layer.closeAll)parent.layer.closeAll("loading");}catch(e){}');
 			}
 			multiState.running = false;
-			if (okCount > 0) multiState.selected = {};
-			refreshMultiUi();
+			if (okCount > 0) clearListRowHighlights();
 			var msg = '批量「' + actionText + '」完成：成功 ' + okCount + ' 条'
 				+ (failCount ? ('，失败 ' + failCount + ' 条（' + (failReasons[0] || '请查看控制台') + '）') : '');
 			toast(msg, failCount > 0 && okCount === 0);
@@ -4685,16 +4494,12 @@ function formatNumberCopyText(row, mode) {
 		});
 	}
 
-	function triggerBatchAction(actionText, preferFixed) {
+	function triggerBatchActionForKeys(keys, actionText, preferFixed) {
 		if (multiState.running) {
 			toast('正在批量提交中，请稍候…', true);
 			return;
 		}
-		var keys = selectedKeys();
-		if (!keys.length) {
-			toast('请先勾选至少一条记录', true);
-			return;
-		}
+		if (!keys || !keys.length) return;
 		var targets = [];
 		for (var i = 0; i < keys.length; i += 1) {
 			var trs = allTableRowsForKey(keys[i]).slice();
@@ -4711,7 +4516,7 @@ function formatNumberCopyText(row, mode) {
 			if (btn) targets.push({ btn: btn, key: keys[i] });
 		}
 		if (!targets.length) {
-			toast('已选条目中没有可「' + actionText + '」的按钮', true);
+			toast('已标蓝条目中没有可「' + actionText + '」的按钮', true);
 			return;
 		}
 		runBatchAttend(targets, actionText);
@@ -4721,45 +4526,18 @@ function formatNumberCopyText(row, mode) {
 		if (document.__dshMultiHooked) return;
 		document.__dshMultiHooked = true;
 
-		// 捕获阶段拦截「到场 / 撤销到场」点击，统一批量执行
+		// 捕获阶段拦截：当存在 2 条及以上标蓝行（list-row-selected）时，点任一行的「到场 / 撤销到场」即批量执行所有标蓝行
 		document.addEventListener('click', function (event) {
-			if (!multiState.active || multiState.running || !event) return;
-			var keys = selectedKeys();
-			if (!keys.length) return;
+			if (multiState.running || !event) return;
+			var keys = highlightedRowKeys();
+			if (keys.length < 2) return;
 			var hit = matchAttendAction(event.target);
 			if (!hit) return;
 			if (event.preventDefault) event.preventDefault();
 			if (event.stopPropagation) event.stopPropagation();
 			if (event.stopImmediatePropagation) event.stopImmediatePropagation();
-			triggerBatchAction(hit.text, isInsideFixed(hit.el));
+			triggerBatchActionForKeys(keys, hit.text, isInsideFixed(hit.el));
 		}, true);
-
-		// 冒泡阶段支持点击表格行任意空白区域勾选/取消勾选
-		document.addEventListener('click', function (event) {
-			if (!multiState.active || multiState.running || !event) return;
-			var target = event.target;
-			var el = target && target.nodeType === 1 ? target : (target && target.parentElement);
-			if (!el) return;
-			if (el.className && String(el.className).indexOf('dsh-multi-chk') >= 0) return;
-			var walk = el;
-			var tr = null;
-			while (walk && walk !== document.body) {
-				if (walk.id === 'dsh-multi-bar' || walk.id === 'dsh-wx-standalone-bar'
-					|| walk.id === 'dsh-home-modal' || walk.id === 'dsh-wx-paste-mask') return;
-				var tag = String(walk.tagName || '').toLowerCase();
-				if (tag === 'a' || tag === 'button' || tag === 'input' || tag === 'select'
-					|| (walk.getAttribute && walk.getAttribute('lay-event'))) return;
-				if (tag === 'tr') { tr = walk; break; }
-				walk = walk.parentElement || walk.parent;
-			}
-			if (!tr) return;
-			var rows = tableMainRows();
-			var key = rowKeyOf(tr, rows.indexOf(tr));
-			if (key === '') return;
-			if (multiState.selected[key]) delete multiState.selected[key];
-			else multiState.selected[key] = true;
-			refreshMultiUi();
-		}, false);
 	}
 
 	/**
@@ -4770,9 +4548,7 @@ function formatNumberCopyText(row, mode) {
 		lines.push('[邀约助手] v' + VERSION + '（二合一）');
 		lines.push('页签条：' + (tabStrip() ? '有' : '没有') + '　页签数：' + tabCount()
 			+ '　「＋」：' + (tabStrip() && tabStrip().querySelector('.dsh-dup-tab') ? '已挂上' : '没挂上')
-			+ '　「小房子主页」：' + (byId(document, 'dsh-home-root') ? '已挂载' : (byId(document, 'dsh-wx-home-pill') ? '角落入口' : '未见'))
-			+ '　「多」：' + (tabStrip() && tabStrip().querySelector('.dsh-multi-tab') ? '已挂上' : (byId(document, 'dsh-wx-multi-pill') ? '角落入口' : '没挂上'))
-			+ '　「贴」：' + (tabStrip() && tabStrip().querySelector('.dsh-paste-tab') ? '已挂上' : (byId(document, 'dsh-wx-paste-pill') ? '角落入口' : '没挂上')));
+			+ '　「仪表盘」：' + (byId(document, 'dsh-home-root') ? '已挂载' : (byId(document, 'dsh-wx-home-pill') ? '按钮入口' : '未见')));
 		var w = pageWindow();
 		lines.push('沙箱隔离：' + (w && w.layui ? '否（直连页面）' : '是/未见 layui（靠 runInDoc 桥接）')
 			+ '　layui.index：' + (w && w.layui && w.layui.index ? '有' : '没有')
@@ -4837,16 +4613,6 @@ function formatNumberCopyText(row, mode) {
 
 	window.addEventListener('hashchange', begin);
 	window.addEventListener('focus', begin);
-	window.addEventListener('message', function (event) {
-		var data = parseFrameMsg(event && event.data);
-		if (!data) return;
-		if (data.type === 'dsh-wx-toggle-multi') {
-			toggleMultiSelect();
-		} else if (data.type === 'dsh-wx-multi-state') {
-			multiState.active = Boolean(data.active);
-			syncMultiButtons();
-		}
-	});
 	begin();
 	installListSniffer();
 	setupMultiSelectHooks();
