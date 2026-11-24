@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.2.19
+// @version      2.3.2
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.2.19 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.3.2 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.2.19';
+	var VERSION = '2.3.2';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -926,6 +926,87 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 	return out;
 }
 
+function listTableColumnOrder() {
+	return [
+		'number_code',
+		'status_text',
+		'organize_name',
+		'real_name',
+		'wechat_username',
+		'boss_username',
+		'zt_name',
+		'interviewer',
+		'interview_result_txt',
+		'interviewer_feedback',
+		'no_pass_reason',
+		'invalid_reason_text',
+		'c_date',
+		'interview_date',
+	];
+}
+
+function buildQuickFilterPreset(presetKey, nowDate, opts) {
+	var d = nowDate instanceof Date ? nowDate : new Date();
+	var o = opts || {};
+	var sep = String(o.rangeSep || ' ~ ');
+	var waitingStatus = String(o.waitingStatus != null && o.waitingStatus !== '' ? o.waitingStatus : '0');
+	var trainedStatus = String(o.trainedStatus != null && o.trainedStatus !== '' ? o.trainedStatus : '4');
+	var pad2 = function (n) { return (n < 10 ? '0' : '') + String(n); };
+	var y = d.getFullYear();
+	var m = d.getMonth() + 1;
+	var day = d.getDate();
+	var today = y + '-' + pad2(m) + '-' + pad2(day);
+	var lastDay = daysInMonth(y + '-' + pad2(m));
+	var monthStart = y + '-' + pad2(m) + '-01';
+	var monthEnd = y + '-' + pad2(m) + '-' + pad2(lastDay);
+
+	var fields = {
+		organize_id: '',
+		number: '',
+		status: '',
+		keywords: '',
+		gender: '',
+		post: '',
+		zp_channel: '',
+		is_attend: '',
+		interviewer: '',
+		interview_result: '',
+		dateRange_type: '',
+		dateRange: '',
+	};
+
+	if (presetKey === 'today_waiting') {
+		fields.dateRange_type = '预约面试日期';
+		fields.dateRange = today + sep + today;
+		fields.status = waitingStatus;
+	} else if (presetKey === 'today_interviewed') {
+		fields.dateRange_type = '面试日期';
+		fields.dateRange = today + sep + today;
+	} else if (presetKey === 'month_joined') {
+		fields.dateRange_type = '面试日期';
+		fields.dateRange = monthStart + sep + monthEnd;
+		fields.status = trainedStatus;
+	}
+	return fields;
+}
+
+function formatNumberCopyText(row, mode) {
+	var clean = function (val) {
+		var s = String(val == null ? '' : val).trim();
+		if (!s || s === '-' || s === '—' || s === '--') return '';
+		return s;
+	};
+	var r = row || {};
+	var num = clean(r.number_code);
+	if (!num) return '';
+	if (mode === 'only') return num.replace(/^\d{4}-/, '');
+	if (mode === 'report') {
+		var who = clean(r.real_name) || clean(r.wechat_username) || clean(r.boss_username);
+		return who ? (who + num) : num;
+	}
+	return num;
+}
+
 	/* ---------------------------------------------------------------- 小工具 */
 
 	function pad2(n) { return String(n).padStart(2, '0'); }
@@ -1213,6 +1294,20 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		}, round === 0 ? 700 : 1000);
 	}
 
+	function hideElementImportant(el) {
+		if (!el || !el.style) return;
+		try {
+			if (typeof el.style.setProperty === 'function') el.style.setProperty('display', 'none', 'important');
+			else el.style.display = 'none';
+		} catch (error) { el.style.display = 'none'; }
+	}
+
+	function isHomeTabLi(li) {
+		if (!li) return false;
+		var id = String(li.getAttribute ? (li.getAttribute('lay-id') || '') : '');
+		return id === 'home/console.html' || Boolean(li.querySelector && li.querySelector('.layui-icon-home'));
+	}
+
 	function duplicate(node) {
 		var tab = tabOf(node) || activeTab();
 		if (!tab) { toast('没找到页签：这个按钮要在有页签条的那一层用', true); return; }
@@ -1229,70 +1324,73 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		verifyOpened(url, title, before, 0);
 	}
 
+	var SIDEBAR_STATE_KEY = 'wx-invite-helper-sidebar-collapsed';
+
+	function ensureMainCompactStyles() {
+		if (byId(document, 'dsh-main-compact-styles')) return;
+		var host = document.head || document.body || document.documentElement;
+		if (!host || typeof host.appendChild !== 'function') return;
+		var style = document.createElement('style');
+		style.id = 'dsh-main-compact-styles';
+		style.textContent = ''
+			+ '.header{height:42px!important}'
+			+ '.header-left{height:42px!important}'
+			+ '.header-avatar{width:30px!important;height:30px!important;font-size:14px!important}'
+			+ '.nav-control-btn{width:28px!important;height:28px!important;font-size:15px!important}'
+			+ '.sidebar-logo{height:42px!important;margin-bottom:4px!important}'
+			+ '.sidebar-section{max-height:calc(100vh - 42px - 40px)!important}'
+			+ '.layadmin-pagetabs{top:42px!important;height:36px!important;line-height:36px!important}'
+			+ '.layadmin-pagetabs .layadmin-tabs-control{line-height:36px!important}'
+			+ '.layadmin-pagetabs .layui-tab-title{height:36px!important}'
+			+ '.layadmin-pagetabs .layui-tab-title li{line-height:36px!important}'
+			+ '.layadmin-tabs-select.layui-nav .layui-nav-item,.layadmin-tabs-select.layui-nav .layui-nav-item>a{line-height:36px!important;height:36px!important}'
+			+ '.layadmin-tabs-select.layui-nav .layui-nav-child{top:36px!important}'
+			+ '.layui-layout-admin .layui-body{top:78px!important}'
+			+ '#header-phone-btn{display:none!important}';
+		try { host.appendChild(style); } catch (e) { /* ignore */ }
+	}
+
 	function mountTabs() {
 		var strip = tabStrip();
 		if (!strip) return false;
-		// 隐藏网站自带的右箭头 `>`（它占在 right:40px，会和「＋」重合）
-		var nextCtrl = strip.querySelector ? strip.querySelector('.layadmin-tabs-control.layui-icon-next') : null;
-		if (nextCtrl && nextCtrl.style) {
-			try {
-				if (typeof nextCtrl.style.setProperty === 'function') nextCtrl.style.setProperty('display', 'none', 'important');
-				else nextCtrl.style.display = 'none';
-			} catch (error) { nextCtrl.style.display = 'none'; }
-		}
-		try { if (strip.style) strip.style.paddingRight = '160px'; } catch (error) { /* ignore */ }
+		ensureMainCompactStyles();
+		// 隐藏页签条左右翻页箭头（`<<`/`>>`：顶栏刷新左侧已有收起侧边栏；`>` 会与「＋」重合）
+		hideElementImportant(strip.querySelector ? strip.querySelector('.layadmin-tabs-control.layui-icon-prev') : null);
+		hideElementImportant(strip.querySelector ? strip.querySelector('.layadmin-tabs-control.layui-icon-next') : null);
+		try {
+			if (strip.style) {
+				strip.style.paddingLeft = '0';
+				strip.style.paddingRight = '160px';
+			}
+		} catch (error) { /* ignore */ }
 
-		var header = tabHeader();
-		// 1. 左上角 `<<`（.layui-icon-prev）改造为：收起/展开左侧边栏（同步原生 #toggle-sidebar-btn）
-		var prevCtrl = strip.querySelector ? strip.querySelector('.layadmin-tabs-control.layui-icon-prev') : null;
-		if (prevCtrl && !prevCtrl.__dshSidebarBound) {
-			prevCtrl.__dshSidebarBound = true;
-			try { if (prevCtrl.removeAttribute) prevCtrl.removeAttribute('layadmin-event'); } catch (error) { /* ignore */ }
-			try { if (prevCtrl.style) prevCtrl.style.cursor = 'pointer'; } catch (error) { /* ignore */ }
-			var syncPrevCtrl = function () {
-				var sb = document.querySelector ? document.querySelector('.sidebar') : null;
-				var collapsed = Boolean(sb && String(sb.className || '').indexOf('collapsed') >= 0);
-				prevCtrl.title = collapsed ? '展开左侧边栏' : '收起左侧边栏';
-				try { if (prevCtrl.style) prevCtrl.style.transform = collapsed ? 'rotate(180deg)' : ''; } catch (error) { /* ignore */ }
-			};
-			syncPrevCtrl();
-			prevCtrl.addEventListener('click', function (event) {
-				if (event) {
-					if (event.preventDefault) event.preventDefault();
-					if (event.stopPropagation) event.stopPropagation();
-					if (event.stopImmediatePropagation) event.stopImmediatePropagation();
-				}
-				var nativeToggle = byId(document, 'toggle-sidebar-btn');
-				if (nativeToggle && typeof nativeToggle.click === 'function') {
-					nativeToggle.click();
-				} else {
-					var sb = document.querySelector ? document.querySelector('.sidebar') : null;
-					var willCollapse = !(sb && String(sb.className || '').indexOf('collapsed') >= 0);
-					var setCls = function (el, cls, add) {
-						if (!el) return;
-						var cleaned = String(el.className || '').replace(new RegExp('\\b' + cls + '\\b', 'g'), '').trim();
-						el.className = add ? (cleaned ? cleaned + ' ' + cls : cls) : cleaned;
-					};
-					setCls(sb, 'collapsed', willCollapse);
-					var sels = ['.header', '.main', '.layadmin-pagetabs', '.layui-body', '.layadmin-tabsbody-item', '.layadmin-iframe'];
-					for (var si = 0; si < sels.length; si += 1) {
-						var nodes = document.querySelectorAll ? document.querySelectorAll(sels[si]) : [];
-						for (var nj = 0; nj < nodes.length; nj += 1) setCls(nodes[nj], 'sidebar-collapsed', willCollapse);
+		// A1：原生顶栏「收起/展开左侧边栏」默认保持展开，仅记忆用户最后一次选择，并在切换后重绘折线图
+		var nativeSidebarBtn = byId(document, 'toggle-sidebar-btn');
+		if (nativeSidebarBtn && !nativeSidebarBtn.__dshSyncHooked) {
+			nativeSidebarBtn.__dshSyncHooked = true;
+			nativeSidebarBtn.addEventListener('click', function () {
+				window.setTimeout(function () {
+					try {
+						var sb = document.querySelector ? document.querySelector('.sidebar') : null;
+						var isCol = Boolean(sb && String(sb.className || '').indexOf('collapsed') >= 0);
+						window.localStorage.setItem(SIDEBAR_STATE_KEY, isCol ? '1' : '0');
+					} catch (e) { /* ignore */ }
+				}, 30);
+				window.setTimeout(drawDashboardChart, 220);
+			});
+			try {
+				if (window.localStorage.getItem(SIDEBAR_STATE_KEY) === '1') {
+					var curSb = document.querySelector ? document.querySelector('.sidebar') : null;
+					var alreadyCollapsed = Boolean(curSb && String(curSb.className || '').indexOf('collapsed') >= 0);
+					if (!alreadyCollapsed && typeof nativeSidebarBtn.click === 'function') {
+						nativeSidebarBtn.click();
 					}
 				}
-				syncPrevCtrl();
-				window.setTimeout(drawDashboardChart, 220);
-			}, true);
-			var nativeSidebarBtn = byId(document, 'toggle-sidebar-btn');
-			if (nativeSidebarBtn && !nativeSidebarBtn.__dshSyncHooked) {
-				nativeSidebarBtn.__dshSyncHooked = true;
-				nativeSidebarBtn.addEventListener('click', function () {
-					window.setTimeout(function () { syncPrevCtrl(); drawDashboardChart(); }, 30);
-				});
-			}
+			} catch (e) { /* ignore */ }
 		}
 
-		// 2. 左上角小房子页签（home/console.html）直接绑定为「主页仪表盘」
+		var header = tabHeader();
+		// 小房子图标直接移到顶栏「刷新」右侧，并绑定为「主页仪表盘」
 		bindNativeHomeTab(header);
 
 		if (!strip.querySelector('.dsh-dup-tab')) {
@@ -1300,7 +1398,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 			btn.className = 'layui-icon layadmin-tabs-control dsh-dup-tab';
 			btn.title = '复制这个页签（同一个页面可以开多个，各自设筛选条件）';
 			btn.textContent = '＋';
-			btn.style.cssText = 'right:40px;font-family:inherit;font-size:17px;font-weight:700;line-height:40px;cursor:pointer;';
+			btn.style.cssText = 'right:40px;font-family:inherit;font-size:17px;font-weight:700;line-height:36px;cursor:pointer;';
 			btn.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); duplicate(null); });
 			strip.appendChild(btn);
 			if (header && !header.__dshCtxBound) {
@@ -1324,7 +1422,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 			pasteBtn.className = 'layui-icon layadmin-tabs-control dsh-paste-tab';
 			pasteBtn.title = '粘贴工作台「核心信息」一键填表（快捷键 Alt+Shift+V）';
 			pasteBtn.textContent = '贴';
-			pasteBtn.style.cssText = 'right:80px;font-family:inherit;font-size:13px;font-weight:700;line-height:40px;color:#0a7;cursor:pointer;';
+			pasteBtn.style.cssText = 'right:80px;font-family:inherit;font-size:13px;font-weight:700;line-height:36px;color:#0a7;cursor:pointer;';
 			pasteBtn.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); panel(); });
 			strip.appendChild(pasteBtn);
 		}
@@ -1333,7 +1431,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 			multiBtn.className = 'layui-icon layadmin-tabs-control dsh-multi-tab';
 			multiBtn.title = '多选条目统一到场 / 撤销到场';
 			multiBtn.textContent = '多';
-			multiBtn.style.cssText = 'right:120px;font-family:inherit;font-size:13px;font-weight:700;line-height:40px;color:#6d28d9;cursor:pointer;';
+			multiBtn.style.cssText = 'right:120px;font-family:inherit;font-size:13px;font-weight:700;line-height:36px;color:#6d28d9;cursor:pointer;';
 			multiBtn.addEventListener('click', function (event) { event.preventDefault(); event.stopPropagation(); toggleMultiFromTop(); });
 			strip.appendChild(multiBtn);
 		}
@@ -1508,7 +1606,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 			var src = dragSrc;
 			clearMarks();
 			dragSrc = null;
-			if (!target || target === src) return;
+			if (!target || target === src || isHomeTabLi(target)) return;
 			if (event.preventDefault) event.preventDefault();
 
 			var beforeLis = Array.prototype.slice.call(header.querySelectorAll('li'));
@@ -1745,6 +1843,545 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 			document.body.appendChild(bar);
 		}
 		syncMultiButtons();
+	}
+
+	/* ==================================================================
+	 * 邀约列表页增强（v2.3.1）：
+	 *   - B1+B2：快捷筛选胶囊（今日待面 / 今日已面 / 本月入职 / 重置）
+	 *   - B3：搜索框回车直筛（含 IME 保护与 page.* 同步）
+	 *   - #4：表格 14 列精简展示与严格排序（固定右侧操作列保持不动）
+	 *   - #5：动态贴底计算表格高度，消除 Win10 Firefox 等环境分页条下方大片空白
+	 *   - C4：序号按「月序号 / 仅序号 / 报序号」模式轻点复制；微信/BOSS/姓名轻点即复制
+	 * ================================================================== */
+
+	var LIST_NUM_COPY_MODE_KEY = 'wx-invite-helper-num-copy-mode';
+	var LIST_COL_MODE_KEY = 'wx-invite-helper-list-col-mode';
+	var LIST_COPY_FIELDS = { number_code: true, wechat_username: true, wechat_user_id: true, boss_username: true, real_name: true };
+	var listTableObserver = null;
+	var listTableRefitTimer = null;
+	var listTableReordering = false;
+
+	function setClassFlag(el, cls, on) {
+		if (!el) return;
+		var cur = String(el.className || '');
+		var re = new RegExp('(?:^|\\s)' + cls + '(?=\\s|$)', 'g');
+		var has = re.test(cur);
+		if (on && !has) el.className = cur ? (cur + ' ' + cls) : cls;
+		else if (!on && has) el.className = cur.replace(re, ' ').replace(/\s+/g, ' ').trim();
+	}
+
+	function ensureListEnhanceStyles() {
+		if (byId(document, 'dsh-list-enhance-styles')) return;
+		var host = document.head || document.body || document.documentElement;
+		if (!host || typeof host.appendChild !== 'function') return;
+		var style = document.createElement('style');
+		style.id = 'dsh-list-enhance-styles';
+		style.textContent = ''
+			+ '#dsh-quick-filter-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid #eef2f6;font-size:12px}'
+			+ '#dsh-quick-filter-bar .dsh-qf-left,#dsh-quick-filter-bar .dsh-qf-right{display:flex;flex-wrap:wrap;align-items:center;gap:6px}'
+			+ '#dsh-quick-filter-bar .dsh-qf-label{color:#64748b;font-weight:600;margin-right:2px}'
+			+ '#dsh-quick-filter-bar .dsh-qf-btn{padding:2px 10px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:12px;line-height:1.6;cursor:pointer;transition:all .15s;white-space:nowrap}'
+			+ '#dsh-quick-filter-bar .dsh-qf-btn:hover{border-color:#1677ff;color:#1677ff;background:#eff6ff}'
+			+ '#dsh-quick-filter-bar .dsh-qf-btn.is-active{background:#1677ff;border-color:#1677ff;color:#fff;font-weight:600}'
+			+ '#dsh-quick-filter-bar .dsh-qf-btn.is-reset{color:#64748b;border-color:#e2e8f0}'
+			+ '#dsh-quick-filter-bar .dsh-qf-btn.is-reset:hover{color:#dc2626;border-color:#fca5a5;background:#fef2f2}'
+			+ '#dsh-quick-filter-bar .dsh-seg-group{display:inline-flex;align-items:center;border:1px solid #cbd5e1;border-radius:999px;background:#fff;overflow:hidden}'
+			+ '#dsh-quick-filter-bar .dsh-seg-btn{padding:2px 9px;border:0;border-right:1px solid #e2e8f0;background:transparent;color:#334155;font-size:12px;line-height:1.6;cursor:pointer;transition:all .15s;white-space:nowrap}'
+			+ '#dsh-quick-filter-bar .dsh-seg-btn:last-child{border-right:0}'
+			+ '#dsh-quick-filter-bar .dsh-seg-btn:hover{color:#1677ff;background:#eff6ff}'
+			+ '#dsh-quick-filter-bar .dsh-seg-btn.is-active{background:#1677ff;color:#fff;font-weight:600}'
+			+ '.layui-table-view[data-dsh-fitted="1"]{margin-bottom:0!important}'
+			+ '.layui-table-main td[data-field="number_code"],.layui-table-main td[data-field="wechat_username"],.layui-table-main td[data-field="wechat_user_id"],.layui-table-main td[data-field="boss_username"],.layui-table-main td[data-field="real_name"]{cursor:copy}'
+			+ '#dsh-copy-pop{position:fixed;z-index:99999;pointer-events:none;padding:3px 9px;border-radius:999px;background:#ecfdf5;border:1px solid #6ee7b7;color:#065f46;font-size:11px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.12);white-space:nowrap}';
+		try { host.appendChild(style); } catch (e) { /* ignore */ }
+	}
+
+	function readListNumCopyMode() {
+		try {
+			var v = window.localStorage.getItem(LIST_NUM_COPY_MODE_KEY);
+			if (v === 'only' || v === 'report' || v === 'month') return v;
+		} catch (e) { /* ignore */ }
+		return 'month';
+	}
+
+	function syncNumCopyModeUi() {
+		var cur = readListNumCopyMode();
+		var modes = ['month', 'only', 'report'];
+		for (var i = 0; i < modes.length; i += 1) {
+			var btn = byId(document, 'dsh-num-mode-' + modes[i]);
+			if (btn) setClassFlag(btn, 'is-active', cur === modes[i]);
+		}
+	}
+
+	function readListColMode() {
+		try {
+			var v = window.localStorage.getItem(LIST_COL_MODE_KEY);
+			if (v === 'all') return 'all';
+		} catch (e) { /* ignore */ }
+		return 'compact';
+	}
+
+	function findFormControlsByName(form, fieldName) {
+		var out = [];
+		if (!form || !form.querySelectorAll) return out;
+		var all = form.querySelectorAll('select, input, textarea');
+		for (var i = 0; i < all.length; i += 1) {
+			var el = all[i];
+			var n = String((el.getAttribute && el.getAttribute('name')) || el.name || '');
+			if (n === fieldName) out.push(el);
+		}
+		return out;
+	}
+
+	function resolveStatusOptionValue(form, label, fallback) {
+		var ctrls = findFormControlsByName(form, 'status');
+		var sel = ctrls.length ? ctrls[0] : null;
+		if (sel && sel.options) {
+			for (var i = 0; i < sel.options.length; i += 1) {
+				if (String(sel.options[i].text || sel.options[i].textContent || '').trim() === label) {
+					return String(sel.options[i].value || '');
+				}
+			}
+		}
+		return fallback;
+	}
+
+	function applyListFilterValues(fields, activeBtnId) {
+		var form = byId(document, 'search_form_PageList');
+		var searchBtn = byId(document, 'search_btn_PageList');
+		if (!form) return;
+
+		// 1. 先同步当前文档 DOM（保证独立环境与沙箱测试立即可见）
+		Object.keys(fields).forEach(function (k) {
+			var v = String(fields[k] == null ? '' : fields[k]);
+			var nodes = findFormControlsByName(form, k);
+			for (var i = 0; i < nodes.length; i += 1) {
+				try { nodes[i].value = v; } catch (e) { /* ignore */ }
+			}
+		});
+
+		// 高亮当前选中的快捷胶囊
+		var bar = byId(document, 'dsh-quick-filter-bar');
+		if (bar && bar.querySelectorAll) {
+			var qBtns = bar.querySelectorAll('.dsh-qf-preset');
+			for (var j = 0; j < qBtns.length; j += 1) {
+				setClassFlag(qBtns[j], 'is-active', Boolean(activeBtnId && qBtns[j].id === activeBtnId));
+			}
+		}
+		fitListTableHeight();
+
+		// 2. 通过 runInPage 在页面原生上下文同步 window.page.<field> + layui.form.render + 触发筛选
+		var payload = JSON.stringify(fields);
+		var ran = runInPage('(function(map){try{'
+			+ 'var $=window.jQuery||window.$;'
+			+ 'Object.keys(map).forEach(function(k){'
+			+ 'var v=map[k];'
+			+ 'if($){$("#search_form_PageList [name=\\""+k+"\\"]").val(v);}'
+			+ 'if(window.page&&window.page[k]){'
+			+ 'if(typeof window.page[k].set==="function"){window.page[k].set(v);}'
+			+ 'else{window.page[k].value=v;}'
+			+ '}'
+			+ '});'
+			+ 'if(window.layui&&window.layui.form){window.layui.form.render("select");}'
+			+ 'if($){var $b=$("#search_form_PageList #search_btn_PageList");if($b.length&&!$b.hasClass("layui-btn-disabled"))$b.click();}'
+			+ '}catch(e){console.error("[邀约助手] 快捷筛选同步失败：",e);}})(' + payload + ');');
+		// 若无 jQuery / 纯单测沙箱，直接点原生筛选按钮
+		var hasJq = false;
+		try { var w = pageWindow(); hasJq = Boolean(w && (w.jQuery || w.$)); } catch (e) { hasJq = false; }
+		if ((!ran || !hasJq) && searchBtn && typeof searchBtn.click === 'function') {
+			var disabled = Boolean(searchBtn.disabled) || String(searchBtn.className || '').indexOf('layui-btn-disabled') >= 0;
+			if (!disabled) searchBtn.click();
+		}
+	}
+
+	function mountQuickFilterBar() {
+		if (byId(document, 'dsh-quick-filter-bar')) return;
+		var form = byId(document, 'search_form_PageList');
+		var toolbar = document.querySelector ? document.querySelector('.list-toolbar') : null;
+		if (!form || !toolbar || !toolbar.parentNode) return;
+
+		var bar = document.createElement('div');
+		bar.id = 'dsh-quick-filter-bar';
+		var left = document.createElement('div');
+		left.className = 'dsh-qf-left';
+		var right = document.createElement('div');
+		right.className = 'dsh-qf-right';
+
+		var lbl = document.createElement('span');
+		lbl.className = 'dsh-qf-label';
+		lbl.textContent = '快捷筛选：';
+		left.appendChild(lbl);
+
+		var mkPreset = function (id, text, presetKey, extraCls) {
+			var b = document.createElement('button');
+			b.id = id;
+			b.type = 'button';
+			b.className = 'dsh-qf-btn dsh-qf-preset' + (extraCls ? (' ' + extraCls) : '');
+			b.textContent = text;
+			b.addEventListener('click', function (e) {
+				if (e && e.preventDefault) e.preventDefault();
+				if (e && e.stopPropagation) e.stopPropagation();
+				var fields = buildQuickFilterPreset(presetKey, new Date(), {
+					rangeSep: ' ~ ',
+					waitingStatus: resolveStatusOptionValue(form, '等待面试', '0'),
+					trainedStatus: resolveStatusOptionValue(form, '已培训', '4'),
+				});
+				applyListFilterValues(fields, presetKey === 'reset' ? '' : id);
+			});
+			return b;
+		};
+
+		left.appendChild(mkPreset('dsh-qf-today-waiting', '今日待面', 'today_waiting', ''));
+		left.appendChild(mkPreset('dsh-qf-today-interviewed', '今日已面', 'today_interviewed', ''));
+		left.appendChild(mkPreset('dsh-qf-month-joined', '本月入职', 'month_joined', ''));
+		left.appendChild(mkPreset('dsh-qf-reset', '重置', 'reset', 'is-reset'));
+
+		var segGroup = document.createElement('div');
+		segGroup.id = 'dsh-num-copy-group';
+		segGroup.className = 'dsh-seg-group';
+		var mkNumMode = function (mode, label, tip) {
+			var b = document.createElement('button');
+			b.id = 'dsh-num-mode-' + mode;
+			b.type = 'button';
+			b.className = 'dsh-seg-btn';
+			b.textContent = label;
+			b.title = tip;
+			b.addEventListener('click', function (e) {
+				if (e && e.preventDefault) e.preventDefault();
+				if (e && e.stopPropagation) e.stopPropagation();
+				try { window.localStorage.setItem(LIST_NUM_COPY_MODE_KEY, mode); } catch (err) { /* ignore */ }
+				syncNumCopyModeUi();
+			});
+			return b;
+		};
+		segGroup.appendChild(mkNumMode('month', '月序号', '点击序号复制时包含 yymm- 前缀（如 2611-12）'));
+		segGroup.appendChild(mkNumMode('only', '仅序号', '点击序号复制时去掉 yymm- 前缀（仅复制编号数字）'));
+		segGroup.appendChild(mkNumMode('report', '报序号', '点击序号复制 姓名+月序号（姓名取 真实姓名 > 微信名 > BOSS名称，如 张三2611-12）'));
+		right.appendChild(segGroup);
+
+		var colBtn = document.createElement('button');
+		colBtn.id = 'dsh-col-mode-btn';
+		colBtn.type = 'button';
+		colBtn.className = 'dsh-qf-btn';
+		colBtn.title = '在精简 14 列（已重排顺序）与系统全部列之间切换';
+		colBtn.addEventListener('click', function (e) {
+			if (e && e.preventDefault) e.preventDefault();
+			var next = readListColMode() === 'compact' ? 'all' : 'compact';
+			try { window.localStorage.setItem(LIST_COL_MODE_KEY, next); } catch (err) { /* ignore */ }
+			applyListTableColumns();
+			fitListTableHeight();
+		});
+		right.appendChild(colBtn);
+
+		bar.appendChild(left);
+		bar.appendChild(right);
+		toolbar.parentNode.insertBefore(bar, toolbar.nextSibling || null);
+	}
+
+	function bindSearchEnter() {
+		var form = byId(document, 'search_form_PageList');
+		if (!form || form.__dshEnterBound) return;
+		form.__dshEnterBound = true;
+		form.addEventListener('keydown', function (event) {
+			if (!event) return;
+			var isEnter = event.key === 'Enter' || event.keyCode === 13;
+			if (!isEnter || event.isComposing || event.keyCode === 229) return;
+			var target = event.target;
+			var tag = target && target.tagName ? String(target.tagName).toLowerCase() : '';
+			if (tag !== 'input') return;
+			if (document.querySelector && document.querySelector('.layui-laydate')) return;
+			var searchBtn = byId(document, 'search_btn_PageList');
+			if (!searchBtn) return;
+			var disabled = Boolean(searchBtn.disabled) || String(searchBtn.className || '').indexOf('layui-btn-disabled') >= 0;
+			if (disabled) return;
+			if (event.preventDefault) event.preventDefault();
+			var name = String(target.getAttribute ? (target.getAttribute('name') || '') : (target.name || '')).trim();
+			var val = String(target.value == null ? '' : target.value);
+			if (name) {
+				runInPage('(function(k,v){try{if(window.page&&window.page[k]){if(typeof window.page[k].set==="function")window.page[k].set(v);else window.page[k].value=v;}}catch(e){}})('
+					+ JSON.stringify(name) + ',' + JSON.stringify(val) + ');');
+			}
+			if (typeof searchBtn.click === 'function') searchBtn.click();
+		});
+	}
+
+	function findListTableView() {
+		if (!document || !document.querySelector) return null;
+		return document.querySelector('.layui-table-view[lay-id="data_list_PageList"]')
+			|| document.querySelector('.layui-table-view');
+	}
+
+	function reorderTableCellsRow(row, orderList, actionFields, compact) {
+		if (!row || !row.children || !row.children.length) return;
+		var cells = Array.prototype.slice.call(row.children);
+		var byField = {};
+		var origList = [];
+		for (var i = 0; i < cells.length; i += 1) {
+			var c = cells[i];
+			var orig = c.getAttribute ? c.getAttribute('data-dsh-orig-idx') : null;
+			if (orig == null || orig === '') {
+				if (c.setAttribute) c.setAttribute('data-dsh-orig-idx', String(i));
+				orig = String(i);
+			}
+			var f = String(c.getAttribute ? (c.getAttribute('data-field') || '') : '').trim();
+			if (f && !byField[f]) byField[f] = c;
+			origList.push({ idx: Number(orig), el: c, field: f });
+		}
+
+		var desired = [];
+		if (compact) {
+			var placed = [];
+			for (var k = 0; k < orderList.length; k += 1) {
+				var target = byField[orderList[k]];
+				if (target) {
+					setClassFlag(target, 'layui-hide', false);
+					desired.push(target);
+					placed.push(target);
+				}
+			}
+			// 保留操作占位列在可见列末尾，保证右侧固定操作列对齐
+			for (var a = 0; a < origList.length; a += 1) {
+				var ac = origList[a];
+				if (actionFields[ac.field] && placed.indexOf(ac.el) < 0) {
+					setClassFlag(ac.el, 'layui-hide', false);
+					desired.push(ac.el);
+					placed.push(ac.el);
+				}
+			}
+			// 其余列统一加 layui-hide 隐藏并排在末尾
+			for (var r = 0; r < origList.length; r += 1) {
+				var rc = origList[r];
+				if (placed.indexOf(rc.el) < 0) {
+					setClassFlag(rc.el, 'layui-hide', true);
+					desired.push(rc.el);
+				}
+			}
+		} else {
+			origList.sort(function (x, y) { return x.idx - y.idx; });
+			for (var u = 0; u < origList.length; u += 1) {
+				setClassFlag(origList[u].el, 'layui-hide', false);
+				desired.push(origList[u].el);
+			}
+		}
+
+		var needMove = desired.length !== cells.length;
+		if (!needMove) {
+			for (var m = 0; m < desired.length; m += 1) {
+				if (desired[m] !== cells[m]) { needMove = true; break; }
+			}
+		}
+		if (needMove) {
+			for (var p = 0; p < desired.length; p += 1) row.appendChild(desired[p]);
+		}
+	}
+
+	function applyListTableColumns() {
+		var mode = readListColMode();
+		var compact = mode === 'compact';
+		var colBtn = byId(document, 'dsh-col-mode-btn');
+		if (colBtn) {
+			colBtn.textContent = compact ? '精简 14 列' : '全部列';
+			setClassFlag(colBtn, 'is-active', compact);
+		}
+		var view = findListTableView();
+		if (!view || listTableReordering) return;
+		var headerBox = view.querySelector ? view.querySelector('.layui-table-header') : null;
+		var headerRow = headerBox && headerBox.querySelector ? headerBox.querySelector('tr') : null;
+		if (!headerRow || !headerRow.children || !headerRow.children.length) return;
+
+		var actionFields = {};
+		var ths = Array.prototype.slice.call(headerRow.children);
+		for (var i = 0; i < ths.length; i += 1) {
+			var th = ths[i];
+			var f = String(th.getAttribute ? (th.getAttribute('data-field') || '') : '').trim();
+			var txt = String(th.textContent || '').replace(/\s+/g, '');
+			var isSpecial = String(th.className || '').indexOf('layui-table-col-special') >= 0;
+			if (txt === '操作' || isSpecial) actionFields[f] = true;
+		}
+		var orderList = listTableColumnOrder();
+		listTableReordering = true;
+		try {
+			reorderTableCellsRow(headerRow, orderList, actionFields, compact);
+			var mainBox = view.querySelector ? view.querySelector('.layui-table-main') : null;
+			var mainBodyEl = mainBox && mainBox.querySelector ? (mainBox.querySelector('tbody') || mainBox) : null;
+			var mainRows = mainBodyEl && mainBodyEl.querySelectorAll ? mainBodyEl.querySelectorAll('tr') : [];
+			for (var r = 0; r < mainRows.length; r += 1) {
+				reorderTableCellsRow(mainRows[r], orderList, actionFields, compact);
+			}
+			if (view.setAttribute) view.setAttribute('data-dsh-col-mode', mode);
+		} finally {
+			listTableReordering = false;
+		}
+	}
+
+	/** 消除分页栏下方空白：按视口剩余高度精确贴底重算表格容器与表体高度（适配 Win10 Firefox 滚动条）。 */
+	function fitListTableHeight() {
+		var view = findListTableView();
+		if (!view || !view.style) return false;
+		var vh = Number(window.innerHeight || (document.documentElement && document.documentElement.clientHeight) || 0);
+		if (!vh || vh < 260) return false;
+		var top = 0;
+		try {
+			if (typeof view.getBoundingClientRect === 'function') {
+				top = Math.max(0, Math.round(view.getBoundingClientRect().top));
+			}
+		} catch (e) { top = 0; }
+		var targetViewH = Math.max(240, Math.floor(vh - top - 8));
+		var headerEl = view.querySelector ? view.querySelector('.layui-table-header') : null;
+		var pageEl = view.querySelector ? view.querySelector('.layui-table-page') : null;
+		var totalEl = view.querySelector ? view.querySelector('.layui-table-total') : null;
+		var mainBody = view.querySelector ? view.querySelector('.layui-table-main') : null;
+		var headerH = (headerEl && headerEl.offsetHeight) || 39;
+		var pageH = (pageEl && pageEl.offsetHeight) || 41;
+		var totalH = (totalEl && totalEl.offsetHeight) || 0;
+		var bodyH = Math.max(120, targetViewH - headerH - pageH - totalH - 2);
+
+		view.style.height = targetViewH + 'px';
+		view.style.marginBottom = '0';
+		if (view.setAttribute) view.setAttribute('data-dsh-fitted', '1');
+		if (mainBody && mainBody.style) {
+			mainBody.style.height = bodyH + 'px';
+			var hScroll = Math.max(0, Number(mainBody.offsetHeight || 0) - Number(mainBody.clientHeight || 0));
+			var fixedBoxes = view.querySelectorAll ? view.querySelectorAll('.layui-table-fixed') : [];
+			for (var i = 0; i < fixedBoxes.length; i += 1) {
+				var fb = fixedBoxes[i].querySelector ? fixedBoxes[i].querySelector('.layui-table-body') : null;
+				if (fb && fb.style) {
+					fb.style.height = Math.max(100, bodyH - hScroll) + 'px';
+				}
+			}
+		}
+		if (document.body && document.body.style) {
+			document.body.style.paddingBottom = '0';
+			document.body.style.marginBottom = '0';
+		}
+		return true;
+	}
+
+	function scheduleListTableSync() {
+		if (listTableRefitTimer) window.clearTimeout(listTableRefitTimer);
+		listTableRefitTimer = window.setTimeout(function () {
+			listTableRefitTimer = null;
+			applyListTableColumns();
+			fitListTableHeight();
+		}, 30);
+	}
+
+	function showCopyPop(text, x, y) {
+		if (!document.body) return;
+		var old = byId(document, 'dsh-copy-pop');
+		if (old && old.parentNode) old.parentNode.removeChild(old);
+		var pop = document.createElement('div');
+		pop.id = 'dsh-copy-pop';
+		pop.textContent = text;
+		var left = Math.max(8, Math.min(Number(x || 0) + 10, (window.innerWidth || 1000) - 180));
+		var top = Math.max(8, Number(y || 0) - 26);
+		pop.style.left = left + 'px';
+		pop.style.top = top + 'px';
+		document.body.appendChild(pop);
+		window.setTimeout(function () {
+			if (pop.parentNode) pop.parentNode.removeChild(pop);
+		}, 900);
+	}
+
+	function copyTextFallback(text) {
+		if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+			try {
+				navigator.clipboard.writeText(text).catch(function () { /* ignore */ });
+				return true;
+			} catch (e) { /* fallback */ }
+		}
+		try {
+			var ta = document.createElement('textarea');
+			ta.value = text;
+			ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;';
+			document.body.appendChild(ta);
+			if (typeof ta.select === 'function') ta.select();
+			if (typeof document.execCommand === 'function') document.execCommand('copy');
+			if (ta.parentNode) ta.parentNode.removeChild(ta);
+			return true;
+		} catch (e) { return false; }
+	}
+
+	function cellPlainText(td) {
+		if (!td) return '';
+		var cell = td.querySelector ? (td.querySelector('.layui-table-cell') || td) : td;
+		return String(cell.textContent || '').trim();
+	}
+
+	function rowFieldText(tr, fieldName) {
+		if (!tr || !tr.children) return '';
+		for (var i = 0; i < tr.children.length; i += 1) {
+			var td = tr.children[i];
+			var f = String(td && td.getAttribute ? (td.getAttribute('data-field') || '') : '').trim();
+			if (f === fieldName) return cellPlainText(td);
+		}
+		return '';
+	}
+
+	function bindListCellCopy() {
+		if (!document.body || document.body.__dshCellCopyBound) return;
+		document.body.__dshCellCopyBound = true;
+		document.body.addEventListener('click', function (event) {
+			if (!event || !event.target) return;
+			try {
+				if (typeof window.getSelection === 'function' && String(window.getSelection() || '').trim()) return;
+			} catch (e) { /* ignore */ }
+			var walk = event.target.nodeType === 1 ? event.target : event.target.parentElement;
+			var td = null;
+			var tr = null;
+			while (walk && walk !== document.body) {
+				var tag = String(walk.tagName || '').toLowerCase();
+				if (tag === 'input' || tag === 'a' || tag === 'button' || String(walk.className || '').indexOf('dsh-multi-chk') >= 0) return;
+				if (!td && tag === 'td') td = walk;
+				if (tag === 'tr') { tr = walk; break; }
+				walk = walk.parentElement || walk.parentNode;
+			}
+			if (!td || !td.getAttribute) return;
+			var field = String(td.getAttribute('data-field') || '').trim();
+			if (!LIST_COPY_FIELDS[field]) return;
+			var out = '';
+			if (field === 'number_code') {
+				var rowData = {
+					number_code: cellPlainText(td),
+					real_name: rowFieldText(tr, 'real_name'),
+					wechat_username: rowFieldText(tr, 'wechat_username'),
+					boss_username: rowFieldText(tr, 'boss_username'),
+				};
+				out = formatNumberCopyText(rowData, readListNumCopyMode());
+			} else {
+				var raw = cellPlainText(td);
+				if (raw && raw !== '-' && raw !== '—' && raw !== '--') out = raw;
+			}
+			if (!out) return;
+			if (copyTextFallback(out)) showCopyPop('已复制 ' + out, event.clientX, event.clientY);
+		});
+	}
+
+	function setupListEnhancements() {
+		if (!byId(document, 'search_form_PageList')) return false;
+		ensureListEnhanceStyles();
+		mountQuickFilterBar();
+		syncNumCopyModeUi();
+		bindSearchEnter();
+		bindListCellCopy();
+		applyListTableColumns();
+		fitListTableHeight();
+		if (!window.__dshListResizeBound) {
+			window.__dshListResizeBound = true;
+			window.addEventListener('resize', function () { fitListTableHeight(); });
+			window.setTimeout(scheduleListTableSync, 150);
+			window.setTimeout(scheduleListTableSync, 600);
+			window.setTimeout(scheduleListTableSync, 1400);
+		}
+		if (typeof MutationObserver === 'function' && document.body && !listTableObserver) {
+			try {
+				listTableObserver = new MutationObserver(function () {
+					if (!listTableReordering) scheduleListTableSync();
+				});
+				listTableObserver.observe(document.body, { childList: true, subtree: true });
+			} catch (e) { /* ignore */ }
+		}
+		return true;
 	}
 
 	/* ==================================================================
@@ -2489,6 +3126,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		style.id = 'dsh-home-styles';
 		style.textContent = ''
 			+ '.layadmin-tabsbody-item[data-dsh-home="1"]{overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch}'
+			+ '.dsh-header-home-btn.dsh-active{background:#eaf3ff!important;color:#1677ff!important;box-shadow:inset 0 0 0 1px #cfe4ff}'
 			+ '#dsh-home-root{display:flex;flex-direction:column;padding:18px 20px 16px;background:#f4f6f9;min-height:100%;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:#1f2937}'
 			+ '#dsh-home-root .dsh-hd{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding:14px 18px;background:#fff;border-radius:10px;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,.04)}'
 			+ '#dsh-home-root .dsh-hd-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}'
@@ -3172,6 +3810,60 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		paintDashboard();
 	}
 
+	function syncHeaderHomeBtn(nativeLi) {
+		var btn = byId(document, 'dsh-header-home-btn');
+		if (!btn) return;
+		var active = Boolean(nativeLi && String(nativeLi.className || '').indexOf('layui-this') >= 0);
+		var cleaned = String(btn.className || '').replace(/\bdsh-active\b/g, '').trim();
+		btn.className = active ? (cleaned ? cleaned + ' dsh-active' : 'dsh-active') : cleaned;
+	}
+
+	function mountHeaderHomeBtn(nativeLi, activateHome, header) {
+		var refreshBtn = byId(document, 'refresh-frame-btn');
+		var navCtrl = (refreshBtn && refreshBtn.parentNode)
+			|| (document.querySelector ? document.querySelector('.header .header-nav-controls, .header-nav-controls') : null);
+		if (!navCtrl) return false;
+		if (!byId(document, 'dsh-header-home-btn')) {
+			var homeBtn = document.createElement('button');
+			homeBtn.type = 'button';
+			homeBtn.id = 'dsh-header-home-btn';
+			homeBtn.className = 'nav-control-btn dsh-header-home-btn';
+			homeBtn.title = '主页仪表盘（点击查看统计）';
+			var icon = document.createElement('i');
+			icon.className = 'layui-icon layui-icon-home';
+			try { if (icon.style) icon.style.cssText = 'font-size:16px;line-height:1;'; } catch (error) { /* ignore */ }
+			homeBtn.appendChild(icon);
+			homeBtn.addEventListener('click', function (event) {
+				if (event) {
+					if (event.preventDefault) event.preventDefault();
+					if (event.stopPropagation) event.stopPropagation();
+				}
+				activateHome();
+			});
+			if (refreshBtn && refreshBtn.parentNode === navCtrl) {
+				navCtrl.insertBefore(homeBtn, refreshBtn.nextSibling || null);
+			} else {
+				navCtrl.appendChild(homeBtn);
+			}
+		}
+		// 顶栏已挂载独立小房子按钮后，隐藏页签条上的原始小房子页签（保留 DOM 占位以维持索引对齐与首个可见页签可关闭）
+		hideElementImportant(nativeLi);
+		syncHeaderHomeBtn(nativeLi);
+		if (header && !header.__dshHomeBtnSync) {
+			header.__dshHomeBtnSync = true;
+			header.addEventListener('click', function () {
+				window.setTimeout(function () { syncHeaderHomeBtn(nativeLi); }, 20);
+			});
+			if (typeof MutationObserver === 'function') {
+				try {
+					var obs = new MutationObserver(function () { syncHeaderHomeBtn(nativeLi); });
+					obs.observe(header, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+				} catch (error) { /* ignore */ }
+			}
+		}
+		return true;
+	}
+
 	function bindNativeHomeTab(header) {
 		var appBody = byId(document, 'LAY_app_body');
 		if (!header || !appBody) return;
@@ -3179,29 +3871,22 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 		var nativeLi = null;
 		var nativeIdx = -1;
 		for (var i = 0; i < lis.length; i += 1) {
-			var li = lis[i];
-			var id = String(li.getAttribute ? (li.getAttribute('lay-id') || '') : '');
-			if (id === 'home/console.html' || (li.querySelector && li.querySelector('.layui-icon-home'))) {
-				nativeLi = li;
+			if (isHomeTabLi(lis[i])) {
+				nativeLi = lis[i];
 				nativeIdx = i;
 				break;
 			}
 		}
-		if (!nativeLi || nativeLi.__dshHomeBound) return;
-		nativeLi.__dshHomeBound = true;
-		try { nativeLi.title = '主页仪表盘（点击查看统计）'; } catch (error) { /* ignore */ }
-		var items = bodyItemsOf(appBody);
-		var pane = nativeIdx >= 0 ? items[nativeIdx] : null;
-		if (pane) {
-			pane.setAttribute('data-dsh-home', '1');
-			if (pane.style) { pane.style.overflowY = 'auto'; pane.style.overflowX = 'hidden'; }
-			renderDashboard(pane);
-			if (String(nativeLi.className || '').indexOf('layui-this') >= 0) {
-				ensureHomeDataLoaded();
-			}
-		}
-		nativeLi.addEventListener('click', function () {
-			activateTabDom(String(nativeLi.getAttribute && nativeLi.getAttribute('lay-id') || '') || 'home/console.html');
+		if (!nativeLi) return;
+		var activateHome = function () {
+			var tabId = String(nativeLi.getAttribute && nativeLi.getAttribute('lay-id') || '') || 'home/console.html';
+			try {
+				var w = pageWindow();
+				if (w && w.layui && w.layui.element && typeof w.layui.element.tabChange === 'function') {
+					w.layui.element.tabChange('layadmin-layout-tabs', tabId);
+				}
+			} catch (error) { /* fallback to activateTabDom below */ }
+			activateTabDom(tabId);
 			if (!byId(document, 'dsh-home-root')) {
 				var curLis = Array.prototype.slice.call(header.querySelectorAll('li'));
 				var idx = curLis.indexOf(nativeLi);
@@ -3213,8 +3898,25 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 				}
 			}
 			ensureHomeDataLoaded();
+			syncHeaderHomeBtn(nativeLi);
 			window.setTimeout(drawDashboardChart, 30);
-		});
+		};
+		mountHeaderHomeBtn(nativeLi, activateHome, header);
+		if (nativeLi.__dshHomeBound) return;
+		nativeLi.__dshHomeBound = true;
+		try { nativeLi.title = '主页仪表盘（点击查看统计）'; } catch (error) { /* ignore */ }
+		var items = bodyItemsOf(appBody);
+		var pane = nativeIdx >= 0 ? items[nativeIdx] : null;
+		if (pane) {
+			pane.setAttribute('data-dsh-home', '1');
+			if (pane.style) { pane.style.overflowY = 'auto'; pane.style.overflowX = 'hidden'; }
+			renderDashboard(pane);
+			if (String(nativeLi.className || '').indexOf('layui-this') >= 0) {
+				ensureHomeDataLoaded();
+				syncHeaderHomeBtn(nativeLi);
+			}
+		}
+		nativeLi.addEventListener('click', activateHome);
 	}
 
 	/** 单独打开列表页时，用全屏浮层打开「主 · 仪表盘」（点空白背景即可关闭）。 */
@@ -3926,6 +4628,7 @@ function buildActionPayload(rowData, actionParamsAttr, attachJsonAttr) {
 				if (path.indexOf('/Auth/Login') < 0 && path !== '/Home/Main') {
 					var standalone = isTopFrame() && !tabStrip();
 					var tbDone = beautifyListToolbar(standalone);
+					setupListEnhancements();
 					if (tbDone && (!standalone || byId(document, 'dsh-wx-standalone-bar'))) return true;
 				}
 			}
