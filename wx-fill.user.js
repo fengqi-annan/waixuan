@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.3.5
+// @version      2.3.8
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.3.5 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.3.8 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.3.5';
+	var VERSION = '2.3.8';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -934,12 +934,12 @@ function listTableColumnOrder() {
 		'real_name',
 		'wechat_username',
 		'boss_username',
-		'zt_name',
-		'interviewer',
 		'interview_result_txt',
 		'interviewer_feedback',
 		'no_pass_reason',
 		'invalid_reason_text',
+		'zt_name',
+		'interviewer',
 		'c_date',
 		'interview_date',
 	];
@@ -2075,6 +2075,24 @@ function formatNumberCopyText(row, mode) {
 		}
 	}
 
+	function clearListRowHighlights() {
+		var view = findListTableView();
+		var cleared = false;
+		if (view && view.querySelectorAll) {
+			var allRows = view.querySelectorAll('tr');
+			for (var i = 0; i < allRows.length; i += 1) {
+				if (String(allRows[i].className || '').indexOf('list-row-selected') >= 0) {
+					setClassFlag(allRows[i], 'list-row-selected', false);
+					cleared = true;
+				}
+			}
+		}
+		if (cleared) {
+			runInPage('try{if(typeof listUpdatePageExtra==="function")listUpdatePageExtra();}catch(e){}');
+		}
+		return cleared;
+	}
+
 	function mountQuickFilterBar() {
 		if (byId(document, 'dsh-quick-filter-bar')) return;
 		var form = byId(document, 'search_form_PageList');
@@ -2102,6 +2120,7 @@ function formatNumberCopyText(row, mode) {
 			b.addEventListener('click', function (e) {
 				if (e && e.preventDefault) e.preventDefault();
 				if (e && e.stopPropagation) e.stopPropagation();
+				if (presetKey === 'reset' && clearListRowHighlights()) return;
 				var fields = buildQuickFilterPreset(presetKey, new Date(), {
 					rangeSep: ' ~ ',
 					waitingStatus: resolveStatusOptionValue(form, '等待面试', '0'),
@@ -2576,27 +2595,70 @@ function formatNumberCopyText(row, mode) {
 		}
 	}
 
+	function isSubmitBtnVisible(btn, doc) {
+		if (!btn) return false;
+		if (btn.style && btn.style.display === 'none') return false;
+		try {
+			var w = doc && doc.defaultView;
+			if (w && typeof w.getComputedStyle === 'function') {
+				var cs = w.getComputedStyle(btn);
+				if (cs && cs.display === 'none') return false;
+			}
+		} catch (e) { /* ignore */ }
+		return true;
+	}
+
+	function isUserEditingForm(doc) {
+		try {
+			var active = doc && doc.activeElement;
+			var activeTag = active && active.tagName ? String(active.tagName).toLowerCase() : '';
+			if ((activeTag === 'input' || activeTag === 'select' || activeTag === 'textarea') && active.id !== 'post_submit_post') {
+				return true;
+			}
+		} catch (e) { /* ignore */ }
+		return hasOpenSelectDropdown(doc);
+	}
+
 	function focusSubmit(doc) {
 		if (!doc || focusSubmitDoc === doc) return false;
 		// 若用户正在输入某个字段或已展开 Layui 下拉框（如手动把岗位改为「助播」），绝不抢走焦点
-		try {
-			var active = doc.activeElement;
-			var activeTag = active && active.tagName ? String(active.tagName).toLowerCase() : '';
-			if ((activeTag === 'input' || activeTag === 'select' || activeTag === 'textarea') && active.id !== 'post_submit_post') {
-				return false;
-			}
-		} catch (e) { /* ignore */ }
-		if (hasOpenSelectDropdown(doc)) return false;
+		if (isUserEditingForm(doc)) return false;
 		var btn = byId(doc, 'post_submit_post');
-		if (!btn || typeof btn.focus !== 'function') return false;
+		if (!btn || typeof btn.focus !== 'function' || !isSubmitBtnVisible(btn, doc)) return false;
+		try {
+			var w = doc.defaultView;
+			if (w && typeof w.focus === 'function') w.focus();
+		} catch (e) { /* ignore */ }
 		try {
 			btn.focus();
+			if ('activeElement' in doc && doc.activeElement && doc.activeElement !== btn) {
+				return false;
+			}
 			focusSubmitDoc = doc;
 			console.log('[邀约助手] 焦点已放到「提交」上：核对一眼，回车就交');
 			return true;
 		} catch (error) {
 			return false;
 		}
+	}
+
+	/** 弹窗加载慢时，#post_submit_post 初始为 style="display:none"，等页面脚本把它 show() 出来后再自动补聚焦。 */
+	function ensureFocusSubmit(doc) {
+		if (!doc || focusSubmit(doc)) return;
+		var tries = 0;
+		var timer = window.setInterval(function () {
+			tries += 1;
+			if (focusSubmitDoc === doc || tries > 24) {
+				window.clearInterval(timer);
+				return;
+			}
+			var edited = doc.__dshUserEdited;
+			if ((edited && Object.keys(edited).length) || isUserEditingForm(doc)) {
+				window.clearInterval(timer);
+				return;
+			}
+			if (focusSubmit(doc)) window.clearInterval(timer);
+		}, 250);
 	}
 
 	/** 让网站把那行红字刷出来；社区还没选就先不动。 */
@@ -2769,7 +2831,7 @@ function formatNumberCopyText(row, mode) {
 				report(slot, data, clip.names);
 				watchForm(doc, data, clip.names);
 				refreshCount(doc);
-				focusSubmit(doc);
+				ensureFocusSubmit(doc);
 			}, { form: WX_FORM, onFail: function (report2) {
 				clipOpening = false;
 				toast('没找到「新增」那张表单，所以什么都没填。现场已打到控制台。', true);
@@ -2949,7 +3011,7 @@ function formatNumberCopyText(row, mode) {
 					yy_interview_date: slot.date, yy_hour: slot.hour, yy_min: slot.minute,
 				}, {});
 				remember({ jd: jd.value, id: org.value, name: communityName, base: '' });
-				focusSubmit(doc);
+				ensureFocusSubmit(doc);
 				console.log('[邀约助手] 时间填好：' + slot.date + ' ' + slot.hour + ':' + slot.minute + '（' + slot.reason + '）');
 				toast('时间已按最近空档填好：' + slot.date + ' ' + slot.hour + ':' + slot.minute + '\n（' + slot.reason + '）—— 核对后点「提交」');
 				if (typeof onFilled === 'function') onFilled(slot, stats);
