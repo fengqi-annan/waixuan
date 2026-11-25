@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.4.1
+// @version      2.4.2
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.4.1 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.4.2 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.4.1';
+	var VERSION = '2.4.2';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -700,8 +700,10 @@ function summarizeDashboard(counts) {
 	var mWaitTrain = numOrNull(c.monthWaitTrain);
 	var mCancelTrain = numOrNull(c.monthCancelTrain);
 	var mReject = numOrNull(c.monthReject);
+	var mCrossValid = numOrNull(c.monthCrossValid);
 	var mValidParts = [mTrained, mLost, mWaitTrain, mCancelTrain, mReject];
-	var monthValid = sumIfReady(mValidParts);
+	var monthValidBase = sumIfReady(mValidParts);
+	var monthValid = monthValidBase === null ? null : monthValidBase + (mCrossValid && mCrossValid > 0 ? mCrossValid : 0);
 	var monthInvalidAttend = numOrNull(c.monthInvalidAttend);
 	var monthArrivedRaw = numOrNull(c.monthArrived);
 	var monthArrived = monthArrivedRaw !== null
@@ -718,16 +720,100 @@ function summarizeDashboard(counts) {
 		monthWaitTrain: mWaitTrain,
 		monthCancelTrain: mCancelTrain,
 		monthReject: mReject,
+		monthCrossValid: mCrossValid,
 		monthInvalidAttend: monthInvalidAttend,
 		monthArrived: monthArrived,
 		monthJoined: monthJoined,
 		monthValid: monthValid,
-		monthValidFormula: monthValid === null ? '' : mValidParts.join(' + '),
+		monthValidFormula: monthValid === null ? '' : (mValidParts.join(' + ') + (mCrossValid && mCrossValid > 0 ? ' + ' + mCrossValid + '跨月' : '')),
 		dayWaiting: numOrNull(c.dayWaiting),
 		dayInterviewed: numOrNull(c.dayInterviewed),
 		dayValid: numOrNull(c.dayValid),
 		dayInvalid: numOrNull(c.dayInvalid),
 	};
+}
+
+function normalizeLogYmd(raw) {
+	var m = /(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/.exec(String(raw || '').trim());
+	if (!m) return '';
+	var mo = m[2].length < 2 ? '0' + m[2] : m[2];
+	var da = m[3].length < 2 ? '0' + m[3] : m[3];
+	return m[1] + '-' + mo + '-' + da;
+}
+
+function parseLogListDataUrlFromHtml(html) {
+	var text = String(html || '').replace(/&amp;/g, '&');
+	var m = /\/Basic\/Component\/ListData\?[^"'`\s<>]+/.exec(text);
+	if (m) return m[0];
+	var signM = /req\.out_para_sign=([a-f0-9]+)/i.exec(text) || /out_para_sign["'\s:=]+["']?([a-f0-9]{16,})/i.exec(text);
+	var sqlM = /req\.attachFilterSql=([^&"'`\s<>]+)/i.exec(text) || /xianxiazp_info_id\s*=\s*(\d+)/i.exec(text);
+	if (!signM || !sqlM) return '';
+	var attachSql = sqlM[1].indexOf('=') >= 0 ? sqlM[1] : ('xianxiazp_info_id = ' + sqlM[1]);
+	if (attachSql.indexOf('%') < 0) attachSql = encodeURIComponent(attachSql);
+	var ds = 'GetListData%2cViewPage.Project.PageFactory%2bXianxiazp%2bLog%2cViewPage.Project%2cVersion%3d1.0.0.0%2cCulture%3dneutral%2cPublicKeyToken%3dnull';
+	return '/Basic/Component/ListData?req.synDataSource=' + ds
+		+ '&req.data_json=%7b%7d&req.out_para=%7b%7d&req.out_para_sign=' + signM[1]
+		+ '&req.attachFilterSql=' + attachSql + '&req.orderBy=';
+}
+
+function isCrossMonthInvalidToValid(logs, monthStart) {
+	var list = Array.isArray(logs) ? logs.slice() : [];
+	if (!list.length || !monthStart) return false;
+	var toSortKey = function (r) {
+		var raw = String((r && (r.create_time || r.modify_time)) || '').trim().replace(/\//g, '-');
+		var m = /(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2}):(\d{1,2}))?/.exec(raw);
+		if (!m) return '';
+		var p = function (s) { return s.length < 2 ? '0' + s : s; };
+		return m[1] + '-' + p(m[2]) + '-' + p(m[3]) + ' ' + p(m[4] || '00') + ':' + p(m[5] || '00') + ':' + p(m[6] || '00');
+	};
+	list.sort(function (a, b) {
+		var ka = toSortKey(a);
+		var kb = toSortKey(b);
+		if (ka !== kb) return ka < kb ? -1 : 1;
+		return Number((a && a.id) || 0) - Number((b && b.id) || 0);
+	});
+	var isInvalidOp = function (txt) {
+		return txt === '不符合邀约' || txt.indexOf('无效') >= 0;
+	};
+	var isValidOp = function (txt) {
+		return txt === '面试通过' || txt === '培训' || txt === '分厅' || txt === '流失'
+			|| txt === '面试拒绝' || txt === '取消培训' || txt === '已培训' || txt === '等待培训';
+	};
+	var lastBefore = '';
+	var hasValidInMonth = false;
+	for (var i = 0; i < list.length; i += 1) {
+		var r = list[i];
+		if (!r) continue;
+		var txt = String(r.c_type_text || '').trim();
+		var ymd = normalizeLogYmd(r.create_time || r.modify_time);
+		if (!ymd) continue;
+		if (ymd < monthStart) {
+			if (isInvalidOp(txt)) lastBefore = 'invalid';
+			else if (isValidOp(txt)) lastBefore = 'valid';
+		} else if (isValidOp(txt)) {
+			hasValidInMonth = true;
+		}
+	}
+	return lastBefore === 'invalid' && hasValidInMonth;
+}
+
+function collectCrossMonthCandidateIds(rows, monthStart) {
+	var list = Array.isArray(rows) ? rows : [];
+	var seen = {};
+	var ids = [];
+	if (!monthStart) return ids;
+	for (var i = 0; i < list.length; i += 1) {
+		var r = list[i];
+		if (!r || r.id == null) continue;
+		var id = String(r.id).trim();
+		if (!id || seen[id]) continue;
+		var ivYmd = normalizeLogYmd(r.interview_date);
+		if (ivYmd && ivYmd < monthStart) {
+			seen[id] = true;
+			ids.push(id);
+		}
+	}
+	return ids;
 }
 
 function rowStatusText(r) {
@@ -3288,6 +3374,40 @@ function formatNumberCopyText(row, mode) {
 		return queryListPage(meta, spec, 1, 1).then(function (res) { return res.count; });
 	}
 
+	/** 查询单条记录的日志页 + ListData，判断是否属于「上月无效 -> 本月改判入职/流失」。 */
+	function fetchCrossMonthInvalidToValidCount(ids, monthStart, onProgress) {
+		var list = Array.isArray(ids) ? ids : [];
+		if (!list.length) return Promise.resolve(0);
+		var validCount = 0;
+		var idx = 0;
+		var next = function () {
+			if (idx >= list.length) return Promise.resolve(validCount);
+			var id = list[idx];
+			idx += 1;
+			if (typeof onProgress === 'function') onProgress(idx, list.length);
+			return siteFetch('/XianxiaZp/Interviewer/Log?id=' + encodeURIComponent(id), { credentials: 'same-origin' }).then(function (r) {
+				if (!r || r.ok === false) return '';
+				return r.text();
+			}).then(function (html) {
+				var logUrl = parseLogListDataUrlFromHtml(html);
+				if (!logUrl) return null;
+				return siteFetch(logUrl, {
+					method: 'POST',
+					credentials: 'same-origin',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ 'req.pager.summaryReq': {}, 'req.pager.curPage': 1, 'req.pager.pageSize': 50 }),
+				}).then(function (r) {
+					if (!r || r.ok === false) return null;
+					return r.json();
+				});
+			}).then(function (j) {
+				var logs = j && Array.isArray(j.data) ? j.data : [];
+				if (isCrossMonthInvalidToValid(logs, monthStart)) validCount += 1;
+			}).catch(function () { /* 单条日志拉取失败不影响主流程 */ }).then(next);
+		};
+		return next();
+	}
+
 	/** 一次拉取 50 条（最多翻 10 页 = 500 条）以统计当月每日有效或当天地点/状态分布。 */
 	function queryListRows(meta, spec) {
 		var rows = [];
@@ -3486,7 +3606,8 @@ function formatNumberCopyText(row, mode) {
 		setText('dsh-hm-month-valid-formula', s.monthValidFormula ? ('（' + s.monthValidFormula + '）') : '');
 		setText('dsh-hm-month-valid-sub', s.monthValid === null
 			? '已培训 + 流失 + 等待培训 + 取消培训 + 面试拒绝'
-			: ('已培训 ' + s.monthTrained + ' + 流失 ' + s.monthLost + ' + 等待培训 ' + s.monthWaitTrain + ' + 取消培训 ' + s.monthCancelTrain + ' + 面试拒绝 ' + s.monthReject));
+			: ('已培训 ' + s.monthTrained + ' + 流失 ' + s.monthLost + ' + 等待培训 ' + s.monthWaitTrain + ' + 取消培训 ' + s.monthCancelTrain + ' + 面试拒绝 ' + s.monthReject
+				+ (s.monthCrossValid && s.monthCrossValid > 0 ? (' + 跨月改有效 ' + s.monthCrossValid) : '')));
 		setText('dsh-hm-month-arrived', dashState.monthLoading && s.monthArrived === null ? '…' : fmtVal(s.monthArrived));
 		setText('dsh-hm-month-arrived-sub', (s.monthValid !== null && s.monthInvalidAttend !== null)
 			? ('有效 ' + s.monthValid + ' + 无效 ' + s.monthInvalidAttend)
@@ -3572,6 +3693,7 @@ function formatNumberCopyText(row, mode) {
 					monthWaitTrain: c.monthWaitTrain,
 					monthCancelTrain: c.monthCancelTrain,
 					monthReject: c.monthReject,
+					monthCrossValid: c.monthCrossValid,
 					monthInvalidAttend: c.monthInvalidAttend,
 					monthArrived: c.monthArrived,
 					monthDaily: c.monthDaily || {},
@@ -3623,6 +3745,7 @@ function formatNumberCopyText(row, mode) {
 				next.monthWaitTrain = mEntry.monthWaitTrain;
 				next.monthCancelTrain = mEntry.monthCancelTrain;
 				next.monthReject = mEntry.monthReject;
+				next.monthCrossValid = mEntry.monthCrossValid;
 				next.monthInvalidAttend = mEntry.monthInvalidAttend;
 				next.monthArrived = mEntry.monthArrived;
 				next.monthDaily = mEntry.monthDaily || {};
@@ -3672,6 +3795,7 @@ function formatNumberCopyText(row, mode) {
 			dashState.counts.monthWaitTrain = null;
 			dashState.counts.monthCancelTrain = null;
 			dashState.counts.monthReject = null;
+			dashState.counts.monthCrossValid = null;
 			dashState.counts.monthInvalidAttend = null;
 			dashState.counts.monthArrived = null;
 			dashState.counts.monthDaily = {};
@@ -3707,35 +3831,58 @@ function formatNumberCopyText(row, mode) {
 			if (includeDayWaiting) {
 				tasks.push({ key: 'dayWaiting', label: '日报 · 等待面试', withRows: 'place', lastDayTask: true, spec: { status: '等待面试', attend: '是' } });
 			}
+			var trainRows = [];
 			if (includeMonth) {
 				// 入职按「培训日期 = 本月」查询，包含上月面试通过本月入职的人；有效/到面数/趋势图按「面试日期 = 本月」拉取
 				var trainDt = meta.dateTypeTraining || '培训日期';
-				tasks.push({ key: 'monthTrainTrained', label: '月报 · 入职(已培训)', spec: { status: '已培训', dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
-				tasks.push({ key: 'monthTrainLost', label: '月报 · 入职(流失)', spec: { status: '流失', dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
+				tasks.push({ key: 'monthTrainTrained', label: '月报 · 入职(已培训)', withTrainRows: true, spec: { status: '已培训', dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
+				tasks.push({ key: 'monthTrainLost', label: '月报 · 入职(流失)', withTrainRows: true, spec: { status: '流失', dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
 				tasks.push({ key: 'monthAll', label: '月报 · 整月到面明细', withMonthAll: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
 			}
+
+			var finishLoad = function () {
+				dashState.loading = false;
+				dashState.totalLoading = false;
+				dashState.monthLoading = false;
+				dashState.dayLoading = false;
+				dashState.statusText = '就绪';
+				dashState.statusBad = false;
+				dashState.updatedAt = nowHms();
+				saveHomeCache();
+				paintDashboard();
+				return Promise.resolve();
+			};
 
 			var step = function (idx) {
 				if (dashState.runId !== runId) return Promise.resolve();
 				if (idx >= tasks.length) {
-					dashState.loading = false;
-					dashState.totalLoading = false;
-					dashState.monthLoading = false;
-					dashState.dayLoading = false;
-					dashState.statusText = '就绪';
-					dashState.statusBad = false;
-					dashState.updatedAt = nowHms();
-					saveHomeCache();
-					paintDashboard();
-					return Promise.resolve();
+					if (!includeMonth) return finishLoad();
+					var crossIds = collectCrossMonthCandidateIds(trainRows, mr.start);
+					if (!crossIds.length) {
+						dashState.counts.monthCrossValid = 0;
+						return finishLoad();
+					}
+					dashState.monthLoading = true;
+					return fetchCrossMonthInvalidToValidCount(crossIds, mr.start, function (cur, total) {
+						if (dashState.runId !== runId) return;
+						dashState.statusText = '核对跨月转入职日志 (' + cur + '/' + total + ')…';
+						paintDashboard();
+					}).then(function (crossValidCount) {
+						if (dashState.runId !== runId) return;
+						dashState.counts.monthCrossValid = crossValidCount;
+						return finishLoad();
+					});
 				}
 				var t = tasks[idx];
 				dashState.statusText = '查询中 (' + (idx + 1) + '/' + tasks.length + ')：' + t.label + '…';
 				paintDashboard();
-				var req = (t.withRows || t.withMonthAll) ? queryListRows(meta, t.spec) : queryListCount(meta, t.spec);
+				var req = (t.withRows || t.withMonthAll || t.withTrainRows) ? queryListRows(meta, t.spec) : queryListCount(meta, t.spec);
 				return req.then(function (res) {
 					if (dashState.runId !== runId) return;
-					if (t.withMonthAll) {
+					if (t.withTrainRows) {
+						dashState.counts[t.key] = res.count;
+						for (var ti = 0; ti < res.rows.length; ti += 1) trainRows.push(res.rows[ti]);
+					} else if (t.withMonthAll) {
 						var mSum = summarizeMonthRows(res.rows, res.count, dashState.month);
 						dashState.counts.monthTrained = mSum.monthTrained;
 						dashState.counts.monthLost = mSum.monthLost;
