@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.4.0
+// @version      2.4.1
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.4.0 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.4.1 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.4.0';
+	var VERSION = '2.4.1';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -464,6 +464,7 @@ function parseListMetaFromHtml(html) {
 		attendValues: {},
 		dateTypeField: '',
 		dateTypeInterview: '',
+		dateTypeTraining: '',
 		dateRangeField: '',
 		dateRangeSep: ' - ',
 		dateStartField: '',
@@ -546,15 +547,21 @@ function parseListMetaFromHtml(html) {
 		var exactInterviewOpt = null;
 		var nonReserveInterviewOpt = null;
 		var fallbackInterviewOpt = null;
+		var trainOpt = null;
 		opts.forEach(function (o) {
 			if (!exactInterviewOpt && (o.text === '面试日期' || o.text === '面试时期' || o.text === '面试时间')) exactInterviewOpt = o;
 			else if (!nonReserveInterviewOpt && /面试日期|面试时期|面试时间/.test(o.text) && o.text.indexOf('预约') < 0) nonReserveInterviewOpt = o;
 			else if (!fallbackInterviewOpt && /预约面试/.test(o.text)) fallbackInterviewOpt = o;
+			if (!trainOpt && /培训日期|培训时期|培训时间/.test(o.text)) trainOpt = o;
 		});
 		var interviewOpt = exactInterviewOpt || nonReserveInterviewOpt || fallbackInterviewOpt;
 		if (interviewOpt) {
 			meta.dateTypeField = name;
 			meta.dateTypeInterview = interviewOpt.value || interviewOpt.text;
+		}
+		if (trainOpt) {
+			if (!meta.dateTypeField) meta.dateTypeField = name;
+			meta.dateTypeTraining = trainOpt.value || trainOpt.text;
 		}
 	}
 
@@ -643,8 +650,8 @@ function buildFilterJson(meta, spec) {
 	if (s.dateFrom || s.dateTo) {
 		var from = String(s.dateFrom || s.dateTo || '');
 		var to = String(s.dateTo || s.dateFrom || '');
-		if (m.dateTypeField && m.dateTypeInterview) {
-			obj[m.dateTypeField] = m.dateTypeInterview;
+		if (m.dateTypeField && (s.dateType || m.dateTypeInterview)) {
+			obj[m.dateTypeField] = s.dateType || m.dateTypeInterview;
 		}
 		if (m.dateStartField && m.dateEndField) {
 			obj[m.dateStartField] = from;
@@ -686,6 +693,10 @@ function summarizeDashboard(counts) {
 	var totalLost = numOrNull(c.totalLost);
 	var mTrained = numOrNull(c.monthTrained);
 	var mLost = numOrNull(c.monthLost);
+	var mTrainTrained = numOrNull(c.monthTrainTrained);
+	var mTrainLost = numOrNull(c.monthTrainLost);
+	var hasTrainSplit = c.monthTrainTrained !== undefined || c.monthTrainLost !== undefined;
+	var monthJoined = hasTrainSplit ? sumIfReady([mTrainTrained, mTrainLost]) : sumIfReady([mTrained, mLost]);
 	var mWaitTrain = numOrNull(c.monthWaitTrain);
 	var mCancelTrain = numOrNull(c.monthCancelTrain);
 	var mReject = numOrNull(c.monthReject);
@@ -702,12 +713,14 @@ function summarizeDashboard(counts) {
 		totalJoined: sumIfReady([totalTrained, totalLost]),
 		monthTrained: mTrained,
 		monthLost: mLost,
+		monthTrainTrained: mTrainTrained,
+		monthTrainLost: mTrainLost,
 		monthWaitTrain: mWaitTrain,
 		monthCancelTrain: mCancelTrain,
 		monthReject: mReject,
 		monthInvalidAttend: monthInvalidAttend,
 		monthArrived: monthArrived,
-		monthJoined: sumIfReady([mTrained, mLost]),
+		monthJoined: monthJoined,
 		monthValid: monthValid,
 		monthValidFormula: monthValid === null ? '' : mValidParts.join(' + '),
 		dayWaiting: numOrNull(c.dayWaiting),
@@ -981,6 +994,9 @@ function buildQuickFilterPreset(presetKey, nowDate, opts) {
 		fields.is_attend = attendYes;
 	} else if (presetKey === 'today_interviewed') {
 		fields.dateRange_type = '面试日期';
+		fields.dateRange = today + sep + today;
+	} else if (presetKey === 'today_added') {
+		fields.dateRange_type = '登记日期';
 		fields.dateRange = today + sep + today;
 	} else if (presetKey === 'month_joined') {
 		fields.dateRange_type = '面试日期';
@@ -2131,6 +2147,7 @@ function formatNumberCopyText(row, mode) {
 
 		left.appendChild(mkPreset('dsh-qf-today-waiting', '今日待面', 'today_waiting', ''));
 		left.appendChild(mkPreset('dsh-qf-today-interviewed', '今日已面', 'today_interviewed', ''));
+		left.appendChild(mkPreset('dsh-qf-today-added', '今日入库', 'today_added', ''));
 		left.appendChild(mkPreset('dsh-qf-month-joined', '本月入职', 'month_joined', ''));
 		left.appendChild(mkPreset('dsh-qf-reset', '重置', 'reset', 'is-reset'));
 
@@ -3190,6 +3207,7 @@ function formatNumberCopyText(row, mode) {
 				attendValues: (hm.attendValues && Object.keys(hm.attendValues).length) ? hm.attendValues : (domMeta.attendValues || {}),
 				dateTypeField: pick(hm.dateTypeField, domMeta.dateTypeField, ''),
 				dateTypeInterview: pick(hm.dateTypeInterview, domMeta.dateTypeInterview, ''),
+				dateTypeTraining: pick(hm.dateTypeTraining, domMeta.dateTypeTraining, '培训日期'),
 				dateRangeField: pick(hm.dateRangeField, domMeta.dateRangeField, ''),
 				dateRangeSep: hm.dateRangeSep || domMeta.dateRangeSep || ' - ',
 				dateStartField: pick(hm.dateStartField, domMeta.dateStartField, ''),
@@ -3460,8 +3478,10 @@ function formatNumberCopyText(row, mode) {
 		setText('dsh-hm-month-status', dashState.monthLoading
 			? '月报数据查询中…'
 			: (dashState.counts.monthTruncatedNote || ''));
+		var mjTrained = s.monthTrainTrained !== null ? s.monthTrainTrained : s.monthTrained;
+		var mjLost = s.monthTrainLost !== null ? s.monthTrainLost : s.monthLost;
 		setText('dsh-hm-month-joined', dashState.monthLoading && s.monthJoined === null ? '…' : fmtVal(s.monthJoined));
-		setText('dsh-hm-month-joined-sub', s.monthJoined === null ? '已培训 + 流失' : ('已培训 ' + s.monthTrained + ' + 流失 ' + s.monthLost));
+		setText('dsh-hm-month-joined-sub', s.monthJoined === null ? '培训日期：已培训 + 流失' : ('培训日期：已培训 ' + mjTrained + ' + 流失 ' + mjLost));
 		setText('dsh-hm-month-valid', dashState.monthLoading && s.monthValid === null ? '…' : fmtVal(s.monthValid));
 		setText('dsh-hm-month-valid-formula', s.monthValidFormula ? ('（' + s.monthValidFormula + '）') : '');
 		setText('dsh-hm-month-valid-sub', s.monthValid === null
@@ -3547,6 +3567,8 @@ function formatNumberCopyText(row, mode) {
 				store.months[dashState.month] = {
 					monthTrained: c.monthTrained,
 					monthLost: c.monthLost,
+					monthTrainTrained: c.monthTrainTrained,
+					monthTrainLost: c.monthTrainLost,
 					monthWaitTrain: c.monthWaitTrain,
 					monthCancelTrain: c.monthCancelTrain,
 					monthReject: c.monthReject,
@@ -3596,6 +3618,8 @@ function formatNumberCopyText(row, mode) {
 			if (mEntry) {
 				next.monthTrained = mEntry.monthTrained;
 				next.monthLost = mEntry.monthLost;
+				next.monthTrainTrained = mEntry.monthTrainTrained;
+				next.monthTrainLost = mEntry.monthTrainLost;
 				next.monthWaitTrain = mEntry.monthWaitTrain;
 				next.monthCancelTrain = mEntry.monthCancelTrain;
 				next.monthReject = mEntry.monthReject;
@@ -3643,6 +3667,8 @@ function formatNumberCopyText(row, mode) {
 			dashState.monthLoading = true;
 			dashState.counts.monthTrained = null;
 			dashState.counts.monthLost = null;
+			dashState.counts.monthTrainTrained = null;
+			dashState.counts.monthTrainLost = null;
 			dashState.counts.monthWaitTrain = null;
 			dashState.counts.monthCancelTrain = null;
 			dashState.counts.monthReject = null;
@@ -3682,7 +3708,10 @@ function formatNumberCopyText(row, mode) {
 				tasks.push({ key: 'dayWaiting', label: '日报 · 等待面试', withRows: 'place', lastDayTask: true, spec: { status: '等待面试', attend: '是' } });
 			}
 			if (includeMonth) {
-				// 合并为单组不限状态的整月拉取（放在最后跑，避免阻塞总计与日报快速出数）
+				// 入职按「培训日期 = 本月」查询，包含上月面试通过本月入职的人；有效/到面数/趋势图按「面试日期 = 本月」拉取
+				var trainDt = meta.dateTypeTraining || '培训日期';
+				tasks.push({ key: 'monthTrainTrained', label: '月报 · 入职(已培训)', spec: { status: '已培训', dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
+				tasks.push({ key: 'monthTrainLost', label: '月报 · 入职(流失)', spec: { status: '流失', dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
 				tasks.push({ key: 'monthAll', label: '月报 · 整月到面明细', withMonthAll: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
 			}
 
@@ -3810,7 +3839,7 @@ function formatNumberCopyText(row, mode) {
 					user ? h('span', { id: 'dsh-hm-user-badge', className: 'dsh-badge', text: '账号：' + user }) : null,
 					h('span', { id: 'dsh-hm-status', className: 'dsh-status', text: '准备就绪' }),
 				]),
-				h('div', { className: 'dsh-actions' }, [refTotalBtn, refMonthBtn, refDayBtn, refBtn]),
+				h('div', { className: 'dsh-actions' }, [refDayBtn, refMonthBtn, refTotalBtn, refBtn]),
 			]),
 			h('div', { className: 'dsh-sec' }, [
 				h('div', { className: 'dsh-sec-hd' }, [
@@ -3842,7 +3871,7 @@ function formatNumberCopyText(row, mode) {
 					]),
 				]),
 				h('div', { className: 'dsh-grid-month' }, [
-					mkCard('green', '入职', 'dsh-hm-month-joined', '已培训 + 流失', 'dsh-hm-month-joined-sub'),
+					mkCard('green', '入职', 'dsh-hm-month-joined', '培训日期：已培训 + 流失', 'dsh-hm-month-joined-sub'),
 					h('div', { className: 'dsh-card accent' }, [
 						h('div', { className: 'dsh-card-label', text: '有效' }),
 						h('div', { className: 'dsh-card-val-row' }, [
@@ -4597,6 +4626,40 @@ function formatNumberCopyText(row, mode) {
 		}, 600);
 	}
 
+	function isEditableShortcutTarget(el) {
+		if (!el) return false;
+		var tag = String(el.tagName || '').toLowerCase();
+		if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+		return Boolean(el.isContentEditable);
+	}
+
+	function openDashboardByShortcut() {
+		if (tabStrip()) {
+			var hBtn = byId(document, 'dsh-header-home-btn');
+			if (hBtn && typeof hBtn.click === 'function') { hBtn.click(); return; }
+			var hdr = tabHeader();
+			var lis = hdr ? hdr.querySelectorAll('li') : [];
+			for (var i = 0; i < lis.length; i += 1) {
+				if (isHomeTabLi(lis[i]) && typeof lis[i].click === 'function') { lis[i].click(); return; }
+			}
+			return;
+		}
+		if (!isTopFrame()) {
+			try {
+				if (window.top && typeof window.top.postMessage === 'function') {
+					window.top.postMessage('__dsh_wx_msg__:{"type":"dsh-wx-open-home"}', '*');
+					return;
+				}
+			} catch (e) { /* fallback */ }
+		}
+		var modal = byId(document, 'dsh-home-modal');
+		if (modal && modal.style && modal.style.display !== 'none') {
+			modal.remove();
+			return;
+		}
+		openHomeModal();
+	}
+
 	function bindShortcut() {
 		document.addEventListener('keydown', function (event) {
 			if (!event) return;
@@ -4605,6 +4668,14 @@ function formatNumberCopyText(row, mode) {
 				if (event.preventDefault) event.preventDefault();
 				if (event.stopPropagation) event.stopPropagation();
 				panel();
+				return;
+			}
+			var isP = event.code === 'KeyP' || String(event.key || '').toLowerCase() === 'p';
+			if (isP && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
+				if (isEditableShortcutTarget(event.target) || isEditableShortcutTarget(document.activeElement)) return;
+				if (event.preventDefault) event.preventDefault();
+				if (event.stopPropagation) event.stopPropagation();
+				openDashboardByShortcut();
 			}
 		});
 	}
@@ -4613,6 +4684,15 @@ function formatNumberCopyText(row, mode) {
 
 	window.addEventListener('hashchange', begin);
 	window.addEventListener('focus', begin);
+	window.addEventListener('message', function (event) {
+		var raw = event && event.data;
+		if (typeof raw === 'string' && raw.indexOf('__dsh_wx_msg__:') === 0) {
+			try {
+				var msg = JSON.parse(raw.slice('__dsh_wx_msg__:'.length));
+				if (msg && msg.type === 'dsh-wx-open-home') openDashboardByShortcut();
+			} catch (e) { /* ignore */ }
+		}
+	});
 	begin();
 	installListSniffer();
 	setupMultiSelectHooks();
