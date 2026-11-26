@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.5.0
+// @version      2.6.0
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.5.0 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.6.0 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.5.0';
+	var VERSION = '2.6.0';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -3251,6 +3251,7 @@ function formatNumberCopyText(row, mode) {
 	var HOME_CACHE_KEY = 'wx-invite-helper-home-cache';
 	var HOME_GOAL_KEY = 'wx-invite-helper-home-goal';
 	var HOME_POST_KEY = 'wx-invite-helper-post';
+	var HOME_CHART_LABELS_KEY = 'wx-invite-helper-home-chart-labels';
 	var POST_OPTIONS = ['运营', '主播', '弹幕回复员', '运营助理', '中控', '管培生', '储备管理', '客服', '助播'];
 	var LIST_PAGE_PATH = '/XianxiaZp/Yaoyue/List';
 
@@ -3577,7 +3578,18 @@ function formatNumberCopyText(row, mode) {
 			+ '#dsh-home-root .dsh-card-foot{margin-top:6px;font-size:11px;color:#6b7280;line-height:1.5}'
 			+ '#dsh-home-root .dsh-sec-hint{font-size:12px;color:#1677ff;font-weight:500}'
 			+ '#dsh-home-root .dsh-chart-area{position:relative;flex:1 1 auto;display:flex;flex-direction:column;margin:4px 0 0;padding:22px 0 0;background:transparent;border:none;min-height:362px}'
-			+ '#dsh-home-root .dsh-chart-keys{position:absolute;top:0;left:0;display:flex;align-items:center;gap:12px;font-size:11px;line-height:1;pointer-events:none}'
+			+ '#dsh-home-root .dsh-chart-keys{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;font-size:11px;line-height:1;pointer-events:auto}'
+			+ '#dsh-home-root .dsh-chart-keys .dsh-btn{margin-left:auto;padding:2px 8px;font-size:11px;line-height:1.3}'
+			+ '#dsh-home-root .dsh-chart-keys .dsh-btn.is-active{background:#eff6ff;color:#1d4ed8;border-color:#93c5fd}'
+			+ '#dsh-home-root .dsh-chart-num{font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round;pointer-events:none}'
+			+ '#dsh-home-root .dsh-chart-num.effect{fill:#1d4ed8}'
+			+ '#dsh-home-root .dsh-chart-num.daily{fill:#3b82f6}'
+			+ '.dsh-home-split{display:flex;width:100%;height:100%;min-height:100%;align-items:stretch;box-sizing:border-box}'
+			+ '.dsh-home-split-left{flex:1 1 50%;min-width:0;overflow-y:auto;overflow-x:hidden}'
+			+ '.dsh-home-split-left #dsh-home-root{padding:12px 14px}'
+			+ '.dsh-home-split-right{flex:1 1 50%;min-width:0;border-left:1px solid #e5e7eb;background:#fff;display:flex;flex-direction:column}'
+			+ '#dsh-home-split-iframe{width:100%;height:100%;min-height:680px;border:0;display:block;flex:1 1 auto}'
+			+ '@media (max-width:1024px){.dsh-home-split{flex-direction:column;height:auto}.dsh-home-split-right{border-left:0;border-top:1px solid #e5e7eb;min-height:680px}}'
 			+ '#dsh-home-root .dsh-chart-key--effect{color:#1d4ed8;font-weight:600}'
 			+ '#dsh-home-root .dsh-chart-key--daily{color:#3b82f6;font-weight:600}'
 			+ '#dsh-home-root .dsh-chart-key--target{color:#6b7280}'
@@ -3659,6 +3671,7 @@ function formatNumberCopyText(row, mode) {
 		var drawSeries = function (cls, points, label) {
 			var coords = [];
 			var dots = '';
+			var nums = '';
 			for (var i = 0; i < points.length; i += 1) {
 				var pt = points[i];
 				var cx = xOf(pt.day);
@@ -3667,11 +3680,15 @@ function formatNumberCopyText(row, mode) {
 				var dd = pad2(pt.day);
 				dots += '<circle class="dsh-chart-dot ' + cls + '" cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="3.5">'
 					+ '<title>' + dashState.month + '-' + dd + '：' + label + ' ' + pt.value + '</title></circle>';
+				if (dashState.showChartLabels && (cls === 'effect' || pt.value > 0)) {
+					var ny = cls === 'effect' ? Math.max(12, cy - 8) : Math.min(h - 4, cy - 7);
+					nums += '<text class="dsh-chart-num ' + cls + '" x="' + cx.toFixed(1) + '" y="' + ny.toFixed(1) + '" text-anchor="middle">' + pt.value + '</text>';
+				}
 			}
 			if (coords.length > 1) {
 				body += '<polyline class="dsh-chart-line ' + cls + '" points="' + coords.join(' ') + '"></polyline>';
 			}
-			body += dots;
+			body += dots + nums;
 		};
 		drawSeries('daily', model.dailyPoints, '当日有效');
 		drawSeries('effect', model.cumulativePoints, '累计有效');
@@ -4039,9 +4056,24 @@ function formatNumberCopyText(row, mode) {
 		});
 	}
 
-	function renderDashboard(pane) {
+	function readHomeChartLabels() {
+		try {
+			return !!(window.localStorage && window.localStorage.getItem(HOME_CHART_LABELS_KEY) === '1');
+		} catch (error) { return false; }
+	}
+
+	function saveHomeChartLabels(show) {
+		try {
+			if (window.localStorage) window.localStorage.setItem(HOME_CHART_LABELS_KEY, show ? '1' : '0');
+		} catch (error) { /* ignore */ }
+		return !!show;
+	}
+
+	function renderDashboard(pane, opts) {
 		if (!pane) return;
+		var splitList = Boolean(opts && opts.splitList);
 		ensureHomeStyles();
+		dashState.showChartLabels = readHomeChartLabels();
 		var user = currentUserName();
 		var mr = monthRange(dashState.month);
 		var h = function (tag, props, kids) {
@@ -4101,6 +4133,12 @@ function formatNumberCopyText(row, mode) {
 		var dayBeforeBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-before', text: '前天' });
 		var dayInput = h('input', { type: 'date', id: 'dsh-hm-day-input', className: 'dsh-input', value: dashState.day });
 
+		var chartNumBtn = h('button', {
+			type: 'button',
+			id: 'dsh-hm-chart-toggle-nums',
+			className: 'dsh-btn dsh-btn-sm' + (dashState.showChartLabels ? ' is-active' : ''),
+			text: dashState.showChartLabels ? '隐藏数字' : '显示数字',
+		});
 		var root = h('div', { id: 'dsh-home-root' }, [
 			h('div', { className: 'dsh-hd' }, [
 				h('div', { className: 'dsh-hd-left' }, [
@@ -4196,11 +4234,29 @@ function formatNumberCopyText(row, mode) {
 					h('span', { className: 'dsh-chart-key--effect', text: '累计有效' }),
 					h('span', { className: 'dsh-chart-key--daily', text: '每天有效' }),
 					h('span', { id: 'dsh-hm-chart-target-key', className: 'dsh-chart-key--target', text: '日均两人' }),
+					chartNumBtn,
 				]),
 				h('div', { id: 'dsh-hm-chart-canvas', className: 'dsh-chart-canvas' }),
 			]),
 		]);
-		pane.appendChild(root);
+		if (splitList) {
+			var splitWrap = h('div', { id: 'dsh-home-split', className: 'dsh-home-split' }, [
+				h('div', { id: 'dsh-home-split-left', className: 'dsh-home-split-left' }, [root]),
+				h('div', { id: 'dsh-home-split-right', className: 'dsh-home-split-right' }, [
+					h('iframe', { id: 'dsh-home-split-iframe', src: LIST_PAGE_PATH }),
+				]),
+			]);
+			pane.appendChild(splitWrap);
+		} else {
+			pane.appendChild(root);
+		}
+
+		chartNumBtn.addEventListener('click', function () {
+			dashState.showChartLabels = saveHomeChartLabels(!dashState.showChartLabels);
+			chartNumBtn.className = 'dsh-btn dsh-btn-sm' + (dashState.showChartLabels ? ' is-active' : '');
+			chartNumBtn.textContent = dashState.showChartLabels ? '隐藏数字' : '显示数字';
+			drawDashboardChart();
+		});
 
 		postSelect.addEventListener('change', function () {
 			dashState.post = saveHomePost(postSelect.value);
@@ -4450,7 +4506,7 @@ function formatNumberCopyText(row, mode) {
 				if (idx >= 0 && curItems[idx]) {
 					curItems[idx].setAttribute('data-dsh-home', '1');
 					if (curItems[idx].style) { curItems[idx].style.overflowY = 'auto'; curItems[idx].style.overflowX = 'hidden'; }
-					renderDashboard(curItems[idx]);
+					renderDashboard(curItems[idx], { splitList: true });
 				}
 			}
 			ensureHomeDataLoaded();
@@ -4466,7 +4522,7 @@ function formatNumberCopyText(row, mode) {
 		if (pane) {
 			pane.setAttribute('data-dsh-home', '1');
 			if (pane.style) { pane.style.overflowY = 'auto'; pane.style.overflowX = 'hidden'; }
-			renderDashboard(pane);
+			renderDashboard(pane, { splitList: true });
 			if (String(nativeLi.className || '').indexOf('layui-this') >= 0) {
 				ensureHomeDataLoaded();
 				syncHeaderHomeBtn(nativeLi);
