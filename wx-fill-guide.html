@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="外宣邀约·填表助手（二合一统一版）使用说明、安装步骤与 Win10 Edge 权限配置指南。">
+  <meta name="description" content="外宣邀约·填表助手使用说明、安装步骤与 Win10 Edge 权限配置指南。">
   <meta name="theme-color" content="#0d2b28">
   <title>邀约填表助手使用说明 · 外宣指北</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='29' fill='%230d2f2c'/%3E%3Cpath d='M32 8 42 32 32 56 22 32Z' fill='%23eef6f2'/%3E%3Cpath d='M32 8 42 32 32 28 22 32Z' fill='%23e65f3c'/%3E%3Ccircle cx='32' cy='32' r='4' fill='%232fae9f'/%3E%3C/svg%3E">
@@ -186,6 +186,8 @@
       letter-spacing: .04em;
     }
     .hero-desc {
+      position: relative;
+      z-index: 1;
       max-width: 720px;
       margin: 16px 0 0;
       color: rgba(238, 246, 242, .82);
@@ -197,6 +199,21 @@
       border-color: rgba(142, 216, 197, .28);
       background: rgba(255, 255, 255, .09);
       color: var(--mint);
+    }
+    .hero-site-link {
+      color: var(--mint);
+      text-decoration: underline;
+      text-underline-offset: 4px;
+      text-decoration-color: rgba(142, 216, 197, .55);
+      transition: color .16s ease, text-decoration-color .16s ease;
+    }
+    .hero-site-link:hover {
+      color: #ffffff;
+      text-decoration-color: #ffffff;
+    }
+    .hero-site-link:hover code {
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, .45);
     }
     .hero-actions {
       position: relative;
@@ -343,9 +360,11 @@
     .kv-chip strong { color: var(--teal-deep); }
 
     /* ===== 安装步骤 + Edge 必看（双栏图纸面板） ===== */
-    .info-grid { display: grid; grid-template-columns: .95fr 1.05fr; align-items: start; gap: 22px; }
+    .info-grid { display: grid; grid-template-columns: .95fr 1.05fr; align-items: stretch; gap: 22px; }
     .panel {
       position: relative;
+      display: flex;
+      flex-direction: column;
       padding: 30px;
       border: 1px solid var(--line);
       border-radius: 24px;
@@ -366,13 +385,13 @@
       font-size: 22px;
       letter-spacing: .03em;
     }
-    .steps { position: relative; display: grid; }
+    .steps { position: relative; flex: 1; display: grid; align-content: space-between; }
     .steps::before {
       content: "";
       position: absolute;
       left: 15px;
-      top: 22px;
-      bottom: 22px;
+      top: 15px;
+      bottom: 36px;
       border-left: 2px dashed rgba(15, 122, 110, .28);
     }
     .step {
@@ -432,16 +451,6 @@
       margin-top: 10px;
       padding: 8px 16px;
       font-size: 12.5px;
-    }
-    .step-tip {
-      margin-top: 18px;
-      padding: 12px 15px;
-      border-radius: 14px;
-      border: 1px solid rgba(15, 122, 110, .18);
-      background: rgba(15, 122, 110, .05);
-      color: var(--ink);
-      font-size: 13px;
-      line-height: 1.65;
     }
 
     /* 深色蓝图面板：Win10 Edge 必看 */
@@ -600,7 +609,7 @@
         <span class="brand-name">外宣指北</span>
       </a>
       <div class="nav-links">
-        <a href="#features">六大功能</a>
+        <a href="#features">五大功能</a>
         <a href="#install">三步安装</a>
         <a href="#edge">Edge 必看</a>
         <a href="#faq">常见问题</a>
@@ -614,16 +623,15 @@
       <div class="hero-card">
         <p class="section-kicker">USER SCRIPT · GUIDE</p>
         <div class="hero-title-row">
-          <h1>外宣邀约填表助手</h1>
-          <span class="hero-badge">日常共用版</span>
+          <h1>外宣邀约 · 填表助手</h1>
         </div>
         <p class="hero-desc">
-          这是一个只对外宣系统（<code>wx.qgxkt.doupeixun.cn</code>）生效的浏览器脚本，用来省掉每天登记邀约时的重复操作。所有关键动作都由你自己把关，<strong>最后的提交按钮永远留给你本人来点</strong>。
+          一个<strong>只对<a class="hero-site-link" href="http://wx.qgxkt.doupeixun.cn/" target="_blank" rel="noopener">外宣网站（<code>wx.qgxkt.doupeixun.cn</code>）↗</a>生效</strong>的油猴脚本，用来省掉每天填邀约与看报表时重复的那几步。它不会替你提交任何东西 —— <strong>「提交」永远是你自己点</strong>。
         </p>
         <div class="hero-actions">
           <a class="btn-primary" href="https://waixuan.pages.dev/wx-fill.user.js" target="_blank" rel="noopener">安装脚本 ↗</a>
           <a class="btn-ghost" href="#install">三步安装</a>
-          <a class="btn-ghost" href="#edge">Win10 Edge 设置</a>
+          <a class="btn-ghost" href="#edge">Win10 Edge 必看</a>
         </div>
       </div>
     </section>
@@ -631,35 +639,41 @@
     <section class="section wrap" id="features">
       <div class="section-head">
         <p class="section-kicker">FEATURES</p>
-        <h2>六个常用功能</h2>
+        <h2>它帮你做五件事</h2>
       </div>
       <div class="feature-list">
         <article class="feature-item">
           <span class="feature-number">01</span>
           <div class="feature-body">
-            <h3>多开同页面，支持拖动排序与改名</h3>
-            <p>
-              原网站不允许同时开两个一样的页签，装上脚本后，页签栏右侧会出现一个 <strong>＋</strong> 号（或者直接在页签上点右键），点一下就能把当前列表页再复制一份，分别设不同的筛选条件，比如一边看培训与流失，一边盯今天待面试的名单。按住页签拖动可以调整顺序，双击标题可以直接改名。
-            </p>
+            <h3>邀约列表精简布局、快捷筛选与轻点复制 <span class="subtag">14 列精简 / 快捷筛选 / 回车直筛 / 点单元格复制</span></h3>
+            <ul class="feature-sublist">
+              <li>默认按常用顺序展示 14 个核心列（右上角可切回「全部列」）并自动贴底消除分页栏下方空白；日志弹窗等非列表页面不会误触发列隐藏；</li>
+              <li>顶部提供 <strong>今日待面 / 今日已面 / 今日入库 / 本月入职 / 重置</strong> 快捷筛选胶囊（有标蓝行时点「重置」优先清除行标蓝而不刷新，无标蓝行时重置全部筛选），低频筛选项默认收起；在输入框内按回车可直接筛选；</li>
+              <li>轻点微信名、BOSS名称或真实姓名单元格即可复制，点击序号支持切换 <strong>月序号 / 仅序号 / 报序号</strong> 三种复制格式。</li>
+            </ul>
           </div>
         </article>
 
         <article class="feature-item">
           <span class="feature-number">02</span>
           <div class="feature-body">
-            <h3>首页数据看板 <span class="subtag">左上角小房子图标 / 列表页主·仪表盘</span></h3>
-            <p>
-              进入系统后，点左上角的<strong>小房子</strong>图标（或独立列表页右上角的<strong>主 · 仪表盘</strong>）就能打开数据概览，里面按总计、月报和日报三块整理好了常用人数，最下方是本月每天的有效趋势折线图。打开页面不会自动联网拉数据，需要看最新情况时点右上角<strong>刷新全部</strong>即可，也可以单独点<strong>刷新入职</strong>、<strong>刷新月报</strong>或<strong>刷新日报</strong>。月报右上角支持设置默认岗位、目标人数和月份；日报支持直接切看今天、昨天、前天或任意指定日期。左上角 <code>&lt;&lt;</code> 按钮还可以一键收起或展开左侧边栏。
-            </p>
+            <h3>主页分屏数据仪表盘 <span class="subtag">顶栏小房子 / 独立列表页「仪表盘」/ 快捷键 P</span></h3>
+            <ul class="feature-sublist">
+              <li>在主界面采用<strong>左 50% 数据仪表盘 + 右 50% 精简邀约列表</strong>分屏布局，标题右侧可随时点 <strong>「取消分屏 / 显示分屏」</strong> 切换（右侧分屏列表仅保留快捷筛选胶囊与序号复制胶囊）；在任意页面按 <kbd>P</kbd> 键也可一键切回或弹出仪表盘；</li>
+              <li><strong>默认只读取本地缓存、不自动联网</strong>，需要最新数据时点右上角 <strong>「刷新全部」</strong>，或单独点 <strong>「刷新日报」/「刷新月报」/「刷新入职」</strong>；</li>
+              <li><strong>总计</strong>展示全时段已培训 / 流失 / 总入职；</li>
+              <li><strong>月报</strong>按 <code>培训日期 = 本月</code> 统计入职、按 <code>面试日期 = 本月</code> 统计有效与到面数（自动核对跨月转入职操作日志，将上月无效本月改判入职/流失的记录计入有效），入职与有效卡片右上角展示 <strong>入职率 / 有效率</strong>；月报旁点 <strong>「复制」</strong> 可一键导出分社区明细（Excel / 腾讯表格格式）；月份选择器兼容 Firefox 自定义选月浮层，且支持选择默认岗位与目标人数；</li>
+              <li><strong>日报</strong>支持今天 / 昨天 / 前天及任意日期即时查询；底部双折线图（累计有效 / 每天有效）支持随时切换 <strong>「显示数字 / 隐藏数字」</strong>（隐藏时同步收起卡片底部灰色小字与公式）。</li>
+            </ul>
           </div>
         </article>
 
         <article class="feature-item">
           <span class="feature-number">03</span>
           <div class="feature-body">
-            <h3>多选批量到场 / 撤销到场 <span class="subtag">顶栏 多 / 列表页 多选 · 到场</span></h3>
+            <h3>标蓝多选批量到场 / 撤销到场 <span class="subtag">点选标蓝后点「到场 / 撤销到场」</span></h3>
             <p>
-              点页签栏右上角的 <strong>多</strong>（或独立列表页右上角的<strong>多选 · 到场</strong>）进入多选状态，勾选要处理的记录后，点顶部紫色操作条里的<strong>批量到场</strong>或<strong>批量撤销到场</strong>（也可以直接点其中某一行的到场按钮），脚本会自动逐条处理完再统一刷新列表，不用一条一条等页面重载。
+              在邀约列表中点击多行使其整行<strong>标蓝</strong>后，直接点击其中任意一行的 <strong>「到场」</strong> 或 <strong>「撤销到场」</strong> 按钮，脚本会自动对所有标蓝条目逐条批量提交并统一刷新列表。
             </p>
           </div>
         </article>
@@ -667,14 +681,15 @@
         <article class="feature-item">
           <span class="feature-number">04</span>
           <div class="feature-body">
-            <h3>打开新增时自动填入常用项（支持自选默认岗位）</h3>
-            <p>
-              打开新增弹窗会自动填好下面几栏；其中<strong>面试岗位</strong>可以在仪表盘月报<strong>目标</strong>左边的下拉框里提前选好（包含系统全部 9 个岗位，选<strong>不选择</strong>则会保持留空不预填）。平时如果大多招某一个岗位、偶尔需要临时改选别的（比如默认运营助理、临时改助播），直接在表单里手改即可，不会和你抢输入框。
-            </p>
+            <h3>打开「新增」自动填好常用项并挑选最近可约时段</h3>
+            <ul class="feature-sublist">
+              <li>打开「新增」时自动填好：登记日期=今天、招聘渠道=外宣BOSS直聘、性别=男；面试岗位可在仪表盘月报「岗位」下拉框自选默认岗位（选「不选择」则保持留空）。</li>
+              <li>选完<strong>基地 + 社区</strong>之后，会自动向网站查询可约时段与已约人数，把「预约面试时间」的日期、时、分都选好 —— 今天还有空就今天，约满自动往后顺延（最多看近 10 天），全满会提示你自己定。上次用过的基地/社区会自动记住。</li>
+            </ul>
             <div class="chip-row">
-              <span class="kv-chip"><span>登记日期</span><strong>当天</strong></span>
+              <span class="kv-chip"><span>登记日期</span><strong>今天</strong></span>
               <span class="kv-chip"><span>招聘渠道</span><strong>外宣BOSS直聘</strong></span>
-              <span class="kv-chip"><span>面试岗位</span><strong>看板可选（含留空）</strong></span>
+              <span class="kv-chip"><span>面试岗位</span><strong>仪表盘「岗位」自选（含留空）</strong></span>
               <span class="kv-chip"><span>性别</span><strong>男</strong></span>
             </div>
           </div>
@@ -683,20 +698,13 @@
         <article class="feature-item">
           <span class="feature-number">05</span>
           <div class="feature-body">
-            <h3>自动挑选最近还有名额的时段</h3>
-            <p>
-              选好<strong>基地</strong>和<strong>社区</strong>后，脚本会自动查看各时段还剩多少空位，帮你在近期有空的那一天选好最早可约的日期、小时和分钟（今天有空约今天，约满了自动顺延到后面几天，最多往后看 10 天）。最近一次用过的基地和社区也会自动记住，下次打开直接带出来。
-            </p>
-          </div>
-        </article>
-
-        <article class="feature-item">
-          <span class="feature-number">06</span>
-          <div class="feature-body">
-            <h3>快捷粘贴填入 <span class="subtag">Alt + Shift + V / 贴</span></h3>
-            <p>
-              在网站任意页面按 <kbd>Alt + Shift + V</kbd>，或者点页签栏的 <strong>贴</strong>（独立列表页为<strong>贴 · 填表</strong>），可以呼出粘贴框导入整理好的 JSON 数据一次填完；平时不用时完全不会干扰手动填表。
-            </p>
+            <h3>页签能多开，还能拖拽换序与重命名</h3>
+            <p>网站原生不允许同一个页面开两个页签，装上脚本后：</p>
+            <ul class="feature-sublist">
+              <li>顶栏与页签栏已合并精简，页签栏右边有 <strong>「＋」</strong>（已自动隐藏多余的 <code>&lt;&lt;</code> / <code>&gt;</code> 按钮），点一下即可把当前页签<strong>再开一个</strong>，各自独立设置筛选条件；</li>
+              <li>在任意页签上<strong>点右键</strong>也可复制该页签；<strong>按住页签拖拽</strong>可调整顺序，<strong>双击页签标题</strong>可直接重命名；</li>
+              <li>每次打开或刷新主界面时，会自动折叠左侧边栏并默认额外打开一个「邀约列表」页签（焦点仍停留在主页）。</li>
+            </ul>
           </div>
         </article>
       </div>
@@ -706,65 +714,62 @@
       <div class="info-grid">
         <article class="panel" id="install">
           <p class="section-kicker">INSTALL</p>
-          <h3>安装方法</h3>
+          <h3>安装（三步）</h3>
           <div class="steps">
             <div class="step">
               <b>01</b>
               <div>
-                <strong>先装浏览器脚本管理器</strong>
-                <p>用哪个浏览器就装对应商店里的篡改猴（Tampermonkey）：</p>
+                <strong>给浏览器装篡改猴（Tampermonkey）</strong>
+                <p>用哪个浏览器就装对应商店里的扩展：</p>
                 <div class="store-links">
-                  <a class="store-pill" href="https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd" target="_blank" rel="noopener">Edge 加载项商店 ↗</a>
-                  <a class="store-pill" href="https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank" rel="noopener">Chrome 应用商店 ↗</a>
-                  <a class="store-pill" href="https://addons.mozilla.org/firefox/addon/tampermonkey/" target="_blank" rel="noopener">Firefox 附加组件 ↗</a>
+                  <a class="store-pill" href="https://microsoftedge.microsoft.com/addons/detail/tampermonkey/iikmkjmpaadaobahmlepeloendndfphd" target="_blank" rel="noopener">Edge</a>
+                  <a class="store-pill" href="https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo" target="_blank" rel="noopener">Chrome</a>
+                  <a class="store-pill" href="https://addons.mozilla.org/firefox/addon/tampermonkey/" target="_blank" rel="noopener">Firefox</a>
                 </div>
               </div>
             </div>
             <div class="step">
               <b>02</b>
               <div>
-                <strong>安装填表脚本</strong>
-                <p>点下面按钮后会弹出安装页面，在右上角点一下安装就行：</p>
+                <strong>点击安装脚本</strong>
+                <p>点这个链接安装脚本（篡改猴会弹出安装页，点「安装」）：</p>
                 <a class="install-pill" href="https://waixuan.pages.dev/wx-fill.user.js" target="_blank" rel="noopener">安装 wx-fill.user.js ↗</a>
               </div>
             </div>
             <div class="step">
               <b>03</b>
               <div>
-                <strong>刷新外宣网站</strong>
-                <p>装完切回外宣网站刷新一下页面就能用了。</p>
+                <strong>刷新一下外宣网站的页面</strong>
+                <p>旧页面里没有它，装完刷新一下即可生效。</p>
               </div>
             </div>
-          </div>
-          <div class="step-tip">
-            <strong>如何确认装好了：</strong>浏览器右上角篡改猴图标上会出现数字角标，点开能看到 <strong>外宣邀约 · 一键填入（填表助手）</strong>。
           </div>
         </article>
 
         <article class="panel panel-dark" id="edge">
           <p class="section-kicker">WINDOWS 10 · EDGE</p>
-          <h3>Win10 Edge 权限提醒</h3>
+          <h3>Win10 Edge 必看</h3>
           <p class="edge-lead">
-            新版 Edge 里的篡改猴默认限制脚本权限。如果装完后刷新网站<strong>看不到 ＋ 号、也没有小房子仪表盘</strong>，把下面两项开关打开即可：
+            <strong>完全没反应 / 看不到「＋」和日志时：</strong>Win10 Edge 商店版的篡改猴已升级到 Manifest V3（5.x），如果安装后<strong>页面完全没有「＋」、按 <kbd>F12</kbd> 也没有 <code>[邀约助手]</code> 日志</strong>，按下面两步开启权限即可：
           </p>
           <div class="dark-steps">
             <div class="dark-step">
               <b>01</b>
               <p>
-                在地址栏打开 <code>edge://extensions/</code>
-                <button class="copy-btn" type="button" data-copy="edge://extensions/">复制地址</button>，打开页面里的<strong>开发人员模式</strong>开关。
+                地址栏打开 <code>edge://extensions/</code>
+                <button class="copy-btn" type="button" data-copy="edge://extensions/">复制地址</button>，开启<strong>「开发人员模式」</strong>（页面左下角或右上角开关）。
               </p>
             </div>
             <div class="dark-step">
               <b>02</b>
               <p>
-                点开 <strong>篡改猴</strong> 的<strong>详细信息</strong>，往下拉找到<strong>允许用户脚本</strong>并开启，确认站点访问权限包含当前外宣网站。
+                找到「篡改猴（Tampermonkey）」→ 点<strong>「详细信息」</strong> → 往下拉确认开启<strong>「允许用户脚本」</strong>（Allow user scripts），且站点访问权限包含外宣网站。
               </p>
             </div>
             <div class="dark-step">
               <b>03</b>
               <p>
-                回到外宣网站按 <kbd>Ctrl + F5</kbd> 强刷一次页面即可生效（按 <kbd>F12</kbd> 看控制台有 <code>[邀约助手] 就绪</code> 字样即正常）。
+                回到外宣网站按 <kbd>Ctrl + F5</kbd> 强刷一次页面，按 <kbd>F12</kbd> 控制台出现 <code>[邀约助手] 就绪（...，二合一版）</code> 即生效。
               </p>
             </div>
           </div>
@@ -779,25 +784,25 @@
       </div>
       <div class="faq-grid">
         <article class="faq-card">
-          <h3>页签上没看到 ＋ 号或 贴 按钮？</h3>
-          <p>先按右边 Win10 Edge 的步骤确认权限已开，再强刷一次页面。注意 ＋、贴、多 这三个按钮只在带左侧菜单和顶部页签栏的主框架里显示；单独打开列表页时，入口会放在列表右上角新增按钮下方。</p>
+          <h3>页签上没出现「＋」或顶栏小房子？</h3>
+          <p>先按上面的 Win10 Edge 权限检查；确认刷新过页面；再看你盯的是不是网站<strong>最外层</strong>（页签栏只在最外层；列表页本身是嵌在里面的）。</p>
         </article>
         <article class="faq-card">
-          <h3>火狐浏览器（Firefox）能用吗？</h3>
-          <p>可以。不管是装篡改猴还是 Greasemonkey（油猴子），仪表盘、多选批量到场和自动填表都能正常用。</p>
+          <h3>火狐（Firefox）或沙箱模式</h3>
+          <p>同样能用。脚本内置跨沙箱与跨 iframe 桥接（<code>runInDoc</code>）、默认页签重试与自定义月份选单，即便读不到页面全局也能正常开页签、选月份、刷新下拉框和剩余人数红字。</p>
         </article>
         <article class="faq-card">
-          <h3>点开新增后没有自动填进去？</h3>
-          <p>偶尔页面刚加载完初始化慢，等一两秒或关掉弹窗重开一次即可。如果一直没反应，按 <kbd>F12</kbd> 切到控制台，输入 <code>__dshWxDiag()</code> 回车可以把当前状态打印出来方便排查。</p>
+          <h3>打开「新增」没自动填？</h3>
+          <p>刷新一次页面再试。还不行就按 <kbd>F12</kbd> 打开控制台，输入 <code>__dshWxDiag()</code> 回车，即可看到诊断信息。</p>
         </article>
         <article class="faq-card">
-          <h3>以后不想用了怎么关掉？</h3>
-          <p>点右上角篡改猴图标，直接把开关关掉或删掉脚本就行，不会影响原网站任何数据。</p>
+          <h3>不想要了</h3>
+          <p>篡改猴面板里把这条脚本删掉即可，网站本身不受影响。</p>
         </article>
       </div>
 
       <div class="privacy-note">
-        这个脚本只在 <code>wx.qgxkt.doupeixun.cn</code> 下生效，不会读取其他网站；所有查询和填表都只用你当前的登录态直接请求原网站接口，不经过任何第三方服务器。
+        这个脚本只对 <code>wx.qgxkt.doupeixun.cn</code> 生效（脚本头里写着 <code>@match</code>），不会读你别的网页；它只调网站自己的接口，不往任何第三方发数据。
       </div>
     </section>
   </main>
