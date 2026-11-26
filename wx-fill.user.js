@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.6.0
+// @version      2.6.4
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.6.0 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.6.4 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.6.0';
+	var VERSION = '2.6.4';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -734,7 +734,7 @@ function summarizeDashboard(counts) {
 		monthValid: monthValid,
 		monthJoinRate: formatDashboardRate(monthJoined, monthValid),
 		monthValidRate: formatDashboardRate(monthValid, monthArrived),
-		monthValidFormula: monthValid === null ? '' : (mValidParts.join(' + ') + (mCrossValid && mCrossValid > 0 ? ' + ' + mCrossValid + '跨月' : '')),
+		monthValidFormula: monthValid === null ? '' : (mValidParts.join(' + ') + (mCrossValid && mCrossValid > 0 ? ' + ' + mCrossValid : '')),
 		dayWaiting: numOrNull(c.dayWaiting),
 		dayInterviewed: numOrNull(c.dayInterviewed),
 		dayValid: numOrNull(c.dayValid),
@@ -1563,7 +1563,7 @@ function formatNumberCopyText(row, mode) {
 			}
 		} catch (error) { /* ignore */ }
 
-		// A1：原生顶栏「收起/展开左侧边栏」默认保持展开，仅记忆用户最后一次选择，并在切换后重绘折线图
+		// A1：每次打开或刷新 /Home/Main 默认折叠左侧边栏（用户仍可手动点按钮展开/收起）
 		var nativeSidebarBtn = byId(document, 'toggle-sidebar-btn');
 		if (nativeSidebarBtn && !nativeSidebarBtn.__dshSyncHooked) {
 			nativeSidebarBtn.__dshSyncHooked = true;
@@ -1578,12 +1578,10 @@ function formatNumberCopyText(row, mode) {
 				window.setTimeout(drawDashboardChart, 220);
 			});
 			try {
-				if (window.localStorage.getItem(SIDEBAR_STATE_KEY) === '1') {
-					var curSb = document.querySelector ? document.querySelector('.sidebar') : null;
-					var alreadyCollapsed = Boolean(curSb && String(curSb.className || '').indexOf('collapsed') >= 0);
-					if (!alreadyCollapsed && typeof nativeSidebarBtn.click === 'function') {
-						nativeSidebarBtn.click();
-					}
+				var curSb = document.querySelector ? document.querySelector('.sidebar') : null;
+				var alreadyCollapsed = Boolean(curSb && String(curSb.className || '').indexOf('collapsed') >= 0);
+				if (!alreadyCollapsed && typeof nativeSidebarBtn.click === 'function') {
+					nativeSidebarBtn.click();
 				}
 			} catch (e) { /* ignore */ }
 		}
@@ -2061,6 +2059,14 @@ function formatNumberCopyText(row, mode) {
 		else if (!on && has) el.className = cur.replace(re, ' ').replace(/\s+/g, ' ').trim();
 	}
 
+	function isSplitListEmbed() {
+		try {
+			if (window.location && String(window.location.search || '').indexOf('dsh_split=1') >= 0) return true;
+			if (window.frameElement && window.frameElement.id === 'dsh-home-split-iframe') return true;
+		} catch (e) { /* ignore */ }
+		return false;
+	}
+
 	function ensureListEnhanceStyles() {
 		if (byId(document, 'dsh-list-enhance-styles')) return;
 		var host = document.head || document.body || document.documentElement;
@@ -2099,7 +2105,10 @@ function formatNumberCopyText(row, mode) {
 			+ '#dsh-quick-filter-bar .dsh-seg-btn.is-active{background:#1677ff;color:#fff;font-weight:600}'
 			+ '.layui-table-view[data-dsh-fitted="1"]{margin-bottom:0!important}'
 			+ '.layui-table-main td[data-field="number_code"],.layui-table-main td[data-field="wechat_username"],.layui-table-main td[data-field="wechat_user_id"],.layui-table-main td[data-field="boss_username"],.layui-table-main td[data-field="real_name"]{cursor:copy}'
-			+ '#dsh-copy-pop{position:fixed;z-index:99999;pointer-events:none;padding:3px 9px;border-radius:999px;background:#ecfdf5;border:1px solid #6ee7b7;color:#065f46;font-size:11px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.12);white-space:nowrap}';
+			+ '#dsh-copy-pop{position:fixed;z-index:99999;pointer-events:none;padding:3px 9px;border-radius:999px;background:#ecfdf5;border:1px solid #6ee7b7;color:#065f46;font-size:11px;font-weight:600;box-shadow:0 3px 10px rgba(0,0,0,.12);white-space:nowrap}'
+			+ 'html[data-dsh-split-list="1"] .list-toolbar,html[data-dsh-split-list="1"] .list-toolbar-right,html[data-dsh-split-list="1"] #search_form_PageList{display:none!important}'
+			+ 'html[data-dsh-split-list="1"] #dsh-quick-filter-bar{margin-top:0!important;padding-top:0!important;border-top:0!important}'
+			+ 'html[data-dsh-split-list="1"] #dsh-filter-fold-btn,html[data-dsh-split-list="1"] #dsh-col-mode-btn,html[data-dsh-split-list="1"] #dsh-quick-filter-bar .dsh-qf-sep{display:none!important}';
 		try { host.appendChild(style); } catch (e) { /* ignore */ }
 	}
 
@@ -2377,6 +2386,26 @@ function formatNumberCopyText(row, mode) {
 		right.appendChild(colBtn);
 
 		// 独立列表页：若已创建「主 / 多 / 贴」胶囊条，直接迁入第 2 层最右端（消灭原右侧三排按钮高塔）
+		if (isSplitListEmbed()) {
+			try {
+				if (document.documentElement && document.documentElement.setAttribute) {
+					document.documentElement.setAttribute('data-dsh-split-list', '1');
+				}
+			} catch (err) { /* ignore */ }
+			if (toolbar && toolbar.style) toolbar.style.display = 'none';
+			var toolbarRightEl = document.querySelector ? document.querySelector('.list-toolbar-right') : null;
+			if (toolbarRightEl && toolbarRightEl.style) toolbarRightEl.style.display = 'none';
+			if (form && form.style) form.style.display = 'none';
+			foldBtn.style.display = 'none';
+			colBtn.style.display = 'none';
+			var seps = right.querySelectorAll ? right.querySelectorAll('.dsh-qf-sep') : [];
+			for (var si = 0; si < seps.length; si += 1) {
+				if (seps[si] && seps[si].style) seps[si].style.display = 'none';
+			}
+			bar.style.marginTop = '0';
+			bar.style.paddingTop = '0';
+			bar.style.borderTop = '0';
+		}
 		var standaloneBar = byId(document, 'dsh-wx-standalone-bar');
 		if (standaloneBar && standaloneBar.parentNode !== right) {
 			addSep();
@@ -3576,6 +3605,7 @@ function formatNumberCopyText(row, mode) {
 			+ '#dsh-home-root .dsh-card.purple .dsh-card-val{color:#7c3aed}'
 			+ '#dsh-home-root .dsh-formula{font-size:12px;color:#6b7280;font-variant-numeric:tabular-nums}'
 			+ '#dsh-home-root .dsh-card-foot{margin-top:6px;font-size:11px;color:#6b7280;line-height:1.5}'
+			+ '#dsh-home-root.dsh-hide-nums .dsh-card-foot,#dsh-home-root.dsh-hide-nums .dsh-formula{display:none}'
 			+ '#dsh-home-root .dsh-sec-hint{font-size:12px;color:#1677ff;font-weight:500}'
 			+ '#dsh-home-root .dsh-chart-area{position:relative;flex:1 1 auto;display:flex;flex-direction:column;margin:4px 0 0;padding:22px 0 0;background:transparent;border:none;min-height:362px}'
 			+ '#dsh-home-root .dsh-chart-keys{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;font-size:11px;line-height:1;pointer-events:auto}'
@@ -4139,7 +4169,7 @@ function formatNumberCopyText(row, mode) {
 			className: 'dsh-btn dsh-btn-sm' + (dashState.showChartLabels ? ' is-active' : ''),
 			text: dashState.showChartLabels ? '隐藏数字' : '显示数字',
 		});
-		var root = h('div', { id: 'dsh-home-root' }, [
+		var root = h('div', { id: 'dsh-home-root', className: dashState.showChartLabels ? '' : 'dsh-hide-nums' }, [
 			h('div', { className: 'dsh-hd' }, [
 				h('div', { className: 'dsh-hd-left' }, [
 					h('div', { className: 'dsh-title', text: '外宣邀约 · 数据主页' }),
@@ -4243,7 +4273,7 @@ function formatNumberCopyText(row, mode) {
 			var splitWrap = h('div', { id: 'dsh-home-split', className: 'dsh-home-split' }, [
 				h('div', { id: 'dsh-home-split-left', className: 'dsh-home-split-left' }, [root]),
 				h('div', { id: 'dsh-home-split-right', className: 'dsh-home-split-right' }, [
-					h('iframe', { id: 'dsh-home-split-iframe', src: LIST_PAGE_PATH }),
+					h('iframe', { id: 'dsh-home-split-iframe', src: LIST_PAGE_PATH + '?dsh_split=1' }),
 				]),
 			]);
 			pane.appendChild(splitWrap);
@@ -4255,6 +4285,7 @@ function formatNumberCopyText(row, mode) {
 			dashState.showChartLabels = saveHomeChartLabels(!dashState.showChartLabels);
 			chartNumBtn.className = 'dsh-btn dsh-btn-sm' + (dashState.showChartLabels ? ' is-active' : '');
 			chartNumBtn.textContent = dashState.showChartLabels ? '隐藏数字' : '显示数字';
+			setClassFlag(root, 'dsh-hide-nums', !dashState.showChartLabels);
 			drawDashboardChart();
 		});
 
@@ -4529,6 +4560,23 @@ function formatNumberCopyText(row, mode) {
 			}
 		}
 		nativeLi.addEventListener('click', activateHome);
+		// 每次打开或刷新 /Home/Main 时，除了主页再默认打开一个「邀约列表」页签，并保持当前焦点停留在主页
+		if (!header.__dshDefaultListOpened) {
+			header.__dshDefaultListOpened = true;
+			var hasYaoyueListTab = false;
+			var curTabs = header.querySelectorAll('li');
+			for (var ti = 0; ti < curTabs.length; ti += 1) {
+				if (String(curTabs[ti].getAttribute && curTabs[ti].getAttribute('lay-id') || '').indexOf(LIST_PAGE_PATH) >= 0) {
+					hasYaoyueListTab = true;
+					break;
+				}
+			}
+			if (!hasYaoyueListTab) {
+				openAsTab(LIST_PAGE_PATH, '邀约列表');
+				window.setTimeout(activateHome, 40);
+				window.setTimeout(activateHome, 240);
+			}
+		}
 	}
 
 	/** 单独打开列表页时，用全屏浮层打开「主 · 仪表盘」（点空白背景即可关闭）。 */
