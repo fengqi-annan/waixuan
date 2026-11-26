@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.6.5
+// @version      2.6.6
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.6.5 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.6.6 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.6.5';
+	var VERSION = '2.6.6';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -1988,8 +1988,11 @@ function formatNumberCopyText(row, mode) {
 	function mountStandalonePill() {
 		if (!isTopFrame() || tabStrip()) return;
 		var path = '';
-		try { path = String(window.location && window.location.pathname || ''); } catch (error) { path = ''; }
-		if (path.indexOf('/Auth/Login') >= 0 || path === '/Home/Main') return;
+		try {
+			var loc = (window && window.location) || (typeof location !== 'undefined' ? location : null);
+			path = String(loc && loc.pathname || '');
+		} catch (error) { path = ''; }
+		if (path.indexOf('Yaoyue/List') < 0) return;
 		if (!document.body || byId(document, 'dsh-wx-standalone-bar')) return;
 
 		var toolbarRight = document.querySelector ? document.querySelector('.list-toolbar-right') : null;
@@ -2539,6 +2542,14 @@ function formatNumberCopyText(row, mode) {
 			if (txt === '操作' || isSpecial) actionFields[f] = true;
 		}
 		var orderList = listTableColumnOrder();
+		var orderSet = {};
+		for (var oi = 0; oi < orderList.length; oi += 1) orderSet[orderList[oi]] = true;
+		var hasAnyTargetCol = false;
+		for (var hi = 0; hi < ths.length; hi += 1) {
+			var hf = String(ths[hi].getAttribute ? (ths[hi].getAttribute('data-field') || '') : '').trim();
+			if (orderSet[hf]) { hasAnyTargetCol = true; break; }
+		}
+		if (!hasAnyTargetCol) return;
 		listTableReordering = true;
 		try {
 			reorderTableCellsRow(headerRow, orderList, actionFields, compact);
@@ -3340,7 +3351,10 @@ function formatNumberCopyText(row, mode) {
 	/** 在 `/XianxiaZp/Yaoyue/List` 页面内被动监听网站自身发出的 ListData 请求，记录其真实参数与表单结构。 */
 	function installListSniffer() {
 		var path = '';
-		try { path = String(window.location && window.location.pathname || ''); } catch (error) { path = ''; }
+		try {
+			var loc = (window && window.location) || (typeof location !== 'undefined' ? location : null);
+			path = String(loc && loc.pathname || '');
+		} catch (error) { path = ''; }
 		if (path.indexOf('Yaoyue/List') < 0) return;
 		runInPage('(function(){'
 			+ 'if(window.__dshWxSniffed)return;window.__dshWxSniffed=true;'
@@ -5090,15 +5104,17 @@ function formatNumberCopyText(row, mode) {
 		try {
 			var mounted = mountTabs();
 			if (!mounted) {
-				mountStandalonePill();
 				var path = '';
-				try { path = String(window.location && window.location.pathname || ''); } catch (e) { path = ''; }
-				if (path.indexOf('/Auth/Login') < 0 && path !== '/Home/Main') {
-					var standalone = isTopFrame() && !tabStrip();
-					var tbDone = beautifyListToolbar(standalone);
-					setupListEnhancements();
-					if (tbDone && (!standalone || byId(document, 'dsh-wx-standalone-bar'))) return true;
-				}
+				try {
+					var loc = (window && window.location) || (typeof location !== 'undefined' ? location : null);
+					path = String(loc && loc.pathname || '');
+				} catch (e) { path = ''; }
+				if (path.indexOf('Yaoyue/List') < 0) return path !== '/Home/Main';
+				mountStandalonePill();
+				var standalone = isTopFrame() && !tabStrip();
+				var tbDone = beautifyListToolbar(standalone);
+				setupListEnhancements();
+				if (tbDone && (!standalone || byId(document, 'dsh-wx-standalone-bar'))) return true;
 			}
 			return mounted;
 		} catch (error) {
