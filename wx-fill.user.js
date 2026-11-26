@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.8.2
+// @version      2.8.3
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.8.2 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.8.3 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.8.2';
+	var VERSION = '2.8.3';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -3582,6 +3582,29 @@ function formatNumberCopyText(row, mode) {
 		return queryListPage(meta, spec, 1, 1).then(function (res) { return res.count; });
 	}
 
+	function readCachedMonthCrossResult(monthStart) {
+		try {
+			var raw = window.localStorage && window.localStorage.getItem(HOME_CROSS_LOG_CACHE_KEY);
+			var parsed = raw ? JSON.parse(raw) : null;
+			var entry = parsed && parsed['month_scanned:' + monthStart];
+			if (entry && typeof entry.count === 'number') {
+				return { count: entry.count, ids: Array.isArray(entry.ids) ? entry.ids : [] };
+			}
+		} catch (e) { /* ignore */ }
+		return null;
+	}
+
+	function saveCachedMonthCrossResult(monthStart, count, ids) {
+		try {
+			if (!window.localStorage) return;
+			var raw = window.localStorage.getItem(HOME_CROSS_LOG_CACHE_KEY);
+			var parsed = raw ? JSON.parse(raw) : null;
+			var cache = parsed && typeof parsed === 'object' ? parsed : {};
+			cache['month_scanned:' + monthStart] = { count: Number(count || 0), ids: Array.isArray(ids) ? ids : [] };
+			window.localStorage.setItem(HOME_CROSS_LOG_CACHE_KEY, JSON.stringify(cache));
+		} catch (e) { /* ignore */ }
+	}
+
 	/** 查询单条记录的日志页 + ListData，判断是否属于「上月无效 -> 本月改判入职/流失」（已判定过的写入本地缓存避免重复查）。 */
 	function fetchCrossMonthInvalidToValidCount(ids, monthStart, onProgress) {
 		var list = Array.isArray(ids) ? ids : [];
@@ -4168,23 +4191,30 @@ function formatNumberCopyText(row, mode) {
 				&& meta.interviewResultValues['不通过'] != null
 			);
 			if (includeMonth) {
-				// 日常刷新仅走极速通道：pageSize=1 查 到面数 与 面试结果(通过+不通过) + 1 页培训日期入职与跨月日志；
-				// 耗时的整月明细与折线图改为点「明细」或「刷新折线图」按需拉取（若站点无 interview_result 字段则退回整月拉取）。
+				// 日常刷新仅走极速通道：pageSize=1 查 到面数 与 面试结果(通过+不通过)；
+				// 若本月已扫过跨月名单，入职也用 2 次 pageSize=1（已培训+流失）并直接复用缓存的跨月 +N；首次刷新本月则拉 1 次培训日期明细建档。
 				var trainDt = meta.dateTypeTraining || '培训日期';
+				var cachedMonthCross = hasIrFast ? readCachedMonthCrossResult(mr.start) : null;
 				if (hasIrFast) {
 					tasks.push({ key: 'monthArrived', label: '月报 · 到面数(速查)', isFastArrived: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
 					tasks.push({ key: 'monthPassFast', label: '月报 · 有效-通过(速查)', isFastPass: true, spec: { interviewResult: '通过', dateFrom: mr.start, dateTo: mr.end } });
 					tasks.push({ key: 'monthRejectFast', label: '月报 · 有效-不通过(速查)', isFastReject: true, spec: { interviewResult: '不通过', dateFrom: mr.start, dateTo: mr.end } });
 				}
-				tasks.push({ key: 'monthTrainAll', label: '月报 · 入职(培训日期)', withTrainAll: true, spec: { dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
+				if (cachedMonthCross) {
+					dashState.counts.monthCrossValid = cachedMonthCross.count;
+					crossResIds = cachedMonthCross.ids || [];
+					dashState.lastCrossResIds = crossResIds;
+					tasks.push({ key: 'monthTrainTrained', label: '月报 · 入职-已培训(速查)', spec: { status: '已培训', dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
+					tasks.push({ key: 'monthTrainLost', label: '月报 · 入职-流失(速查)', lastFastTrain: true, spec: { status: '流失', dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
+				} else {
+					tasks.push({ key: 'monthTrainAll', label: '月报 · 入职(培训日期)', withTrainAll: true, spec: { dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
+				}
 				if (!hasIrFast) {
 					tasks.push({ key: 'monthAll', label: '月报 · 整月到面明细与分社区统计', withMonthAll: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
 				}
 			} else if (includeMonthDetail) {
-				if (!(Array.isArray(dashState.lastTrainRows) && dashState.lastTrainYm === dashState.month)) {
-					var trainDt2 = meta.dateTypeTraining || '培训日期';
-					tasks.push({ key: 'monthTrainAll', label: '月报 · 入职(培训日期)', withTrainAll: true, spec: { dateType: trainDt2, dateFrom: mr.start, dateTo: mr.end } });
-				}
+				var trainDt2 = meta.dateTypeTraining || '培训日期';
+				tasks.push({ key: 'monthTrainAll', label: '月报 · 入职(培训日期)', withTrainAll: true, spec: { dateType: trainDt2, dateFrom: mr.start, dateTo: mr.end } });
 				tasks.push({ key: 'monthAll', label: '月报 · 整月明细与折线图', withMonthAll: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
 			}
 
@@ -4217,7 +4247,9 @@ function formatNumberCopyText(row, mode) {
 				paintDashboard();
 				var req = t.withRows
 					? queryListRows(meta, t.spec, 20)
-					: ((t.withMonthAll || t.withTrainAll) ? queryListRows(meta, t.spec) : queryListCount(meta, t.spec));
+					: (t.withTrainAll
+						? queryListRows(meta, t.spec, 30)
+						: (t.withMonthAll ? queryListRows(meta, t.spec) : queryListCount(meta, t.spec)));
 				return req.then(function (res) {
 					if (dashState.runId !== runId) return;
 					if (t.isFastArrived) {
@@ -4241,6 +4273,7 @@ function formatNumberCopyText(row, mode) {
 							dashState.counts.monthCrossValid = 0;
 							crossResIds = [];
 							dashState.lastCrossResIds = [];
+							saveCachedMonthCrossResult(mr.start, 0, []);
 							if (dashState.counts.monthFastValid != null) dashState.monthLoading = false;
 							paintDashboard();
 							return step(idx + 1);
@@ -4254,6 +4287,7 @@ function formatNumberCopyText(row, mode) {
 							dashState.counts.monthCrossValid = crossRes.count;
 							crossResIds = crossRes.ids || [];
 							dashState.lastCrossResIds = crossResIds;
+							saveCachedMonthCrossResult(mr.start, crossRes.count, crossResIds);
 							if (dashState.counts.monthFastValid != null) dashState.monthLoading = false;
 							paintDashboard();
 							return step(idx + 1);
@@ -4293,6 +4327,7 @@ function formatNumberCopyText(row, mode) {
 					} else {
 						dashState.counts[t.key] = res;
 						if (t.lastTotalTask) dashState.totalLoading = false;
+						if (t.lastFastTrain && dashState.counts.monthFastValid != null) dashState.monthLoading = false;
 					}
 					paintDashboard();
 					return step(idx + 1);
