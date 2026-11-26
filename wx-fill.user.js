@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.6.6
+// @version      2.7.0
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.6.6 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.7.0 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.6.6';
+	var VERSION = '2.7.0';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -871,6 +871,30 @@ function summarizeMonthRows(rows, totalCount, ym) {
 	counts.monthArrived = Number.isFinite(tc) && tc >= list.length ? tc : list.length;
 	counts.monthDaily = extractMonthDailyCounts(validRows, ym);
 	return counts;
+}
+
+function summarizeTrainRows(rows) {
+	var list = Array.isArray(rows) ? rows : [];
+	var trained = 0;
+	var lost = 0;
+	var trainRows = [];
+	for (var i = 0; i < list.length; i += 1) {
+		var r = list[i];
+		if (!r) continue;
+		var st = rowStatusText(r);
+		if (st === '已培训') {
+			trained += 1;
+			trainRows.push(r);
+		} else if (st === '流失') {
+			lost += 1;
+			trainRows.push(r);
+		}
+	}
+	return {
+		monthTrainTrained: trained,
+		monthTrainLost: lost,
+		trainRows: trainRows,
+	};
 }
 
 function summarizeMonthByCommunity(monthAllRows, trainRows, crossValidIds) {
@@ -2727,8 +2751,29 @@ function formatNumberCopyText(row, mode) {
 		}
 		if (typeof MutationObserver === 'function' && document.body && !listTableObserver) {
 			try {
-				listTableObserver = new MutationObserver(function () {
-					if (!listTableReordering) scheduleListTableSync();
+				listTableObserver = new MutationObserver(function (mutations) {
+					if (listTableReordering) return;
+					if (Array.isArray(mutations) && mutations.length) {
+						var onlySelfPop = true;
+						for (var mi = 0; mi < mutations.length; mi += 1) {
+							var tgt = mutations[mi] && mutations[mi].target;
+							var tid = tgt && tgt.id ? String(tgt.id) : '';
+							if (tid !== 'dsh-copy-pop' && tid !== 'dsh-wx-tip') {
+								var added = mutations[mi].addedNodes;
+								if (added && added.length) {
+									for (var ai = 0; ai < added.length; ai += 1) {
+										var aid = added[ai] && added[ai].id ? String(added[ai].id) : '';
+										if (aid !== 'dsh-copy-pop' && aid !== 'dsh-wx-tip') { onlySelfPop = false; break; }
+									}
+								} else {
+									onlySelfPop = false;
+								}
+							}
+							if (!onlySelfPop) break;
+						}
+						if (onlySelfPop) return;
+					}
+					scheduleListTableSync();
 				});
 				listTableObserver.observe(document.body, { childList: true, subtree: true });
 			} catch (e) { /* ignore */ }
@@ -3269,9 +3314,9 @@ function formatNumberCopyText(row, mode) {
 
 	/** 监听手动打开「新增」；工作台接管时跳过，绝不覆盖工作台数据。 */
 	function waitForForm() {
-		try {
-			if (window.location && String(window.location.pathname || '').indexOf('/Auth/Login') >= 0) return;
-		} catch (error) { /* ignore */ }
+		var p = '';
+		try { p = String(window.location && window.location.pathname || ''); } catch (error) { p = ''; }
+		if (p.indexOf('/Auth/Login') >= 0 || p.indexOf('/Interviewer/Log') >= 0) return;
 		var seen = [];
 		window.setInterval(function () {
 			if (clipOpening) return;
@@ -3280,7 +3325,7 @@ function formatNumberCopyText(row, mode) {
 			if (isClaimed(doc) || seen.indexOf(doc) >= 0) return;
 			seen.push(doc);
 			prefill(doc);
-		}, 800);
+		}, 1500);
 	}
 
 	/* ==================================================================
@@ -3289,11 +3334,27 @@ function formatNumberCopyText(row, mode) {
 
 	var LIST_META_KEY = 'wx-invite-helper-list-meta';
 	var HOME_CACHE_KEY = 'wx-invite-helper-home-cache';
+	var HOME_CACHE_SCHEMA = 3;
 	var HOME_GOAL_KEY = 'wx-invite-helper-home-goal';
 	var HOME_POST_KEY = 'wx-invite-helper-post';
 	var HOME_CHART_LABELS_KEY = 'wx-invite-helper-home-chart-labels';
+	var HOME_SPLIT_KEY = 'wx-invite-helper-home-split';
+	var HOME_CROSS_LOG_CACHE_KEY = 'wx-invite-helper-cross-log-cache';
 	var POST_OPTIONS = ['运营', '主播', '弹幕回复员', '运营助理', '中控', '管培生', '储备管理', '客服', '助播'];
 	var LIST_PAGE_PATH = '/XianxiaZp/Yaoyue/List';
+
+	function readHomeSplit() {
+		try {
+			return !(window.localStorage && window.localStorage.getItem(HOME_SPLIT_KEY) === '0');
+		} catch (error) { return true; }
+	}
+
+	function saveHomeSplit(on) {
+		try {
+			if (window.localStorage) window.localStorage.setItem(HOME_SPLIT_KEY, on ? '1' : '0');
+		} catch (error) { /* ignore */ }
+		return !!on;
+	}
 
 	function readHomeGoal() {
 		try {
@@ -3499,17 +3560,47 @@ function formatNumberCopyText(row, mode) {
 		return queryListPage(meta, spec, 1, 1).then(function (res) { return res.count; });
 	}
 
-	/** 查询单条记录的日志页 + ListData，判断是否属于「上月无效 -> 本月改判入职/流失」。 */
+	/** 查询单条记录的日志页 + ListData，判断是否属于「上月无效 -> 本月改判入职/流失」（已判定过的写入本地缓存避免重复查）。 */
 	function fetchCrossMonthInvalidToValidCount(ids, monthStart, onProgress) {
 		var list = Array.isArray(ids) ? ids : [];
 		if (!list.length) return Promise.resolve({ count: 0, ids: [] });
+		var cache = {};
+		try {
+			var raw = window.localStorage && window.localStorage.getItem(HOME_CROSS_LOG_CACHE_KEY);
+			var parsed = raw ? JSON.parse(raw) : null;
+			if (parsed && typeof parsed === 'object') cache = parsed;
+		} catch (e) { cache = {}; }
+		var cacheDirty = false;
 		var validIds = [];
+		var missing = [];
+		for (var i = 0; i < list.length; i += 1) {
+			var cid = String(list[i] || '').trim();
+			if (!cid) continue;
+			var ck = monthStart + ':' + cid;
+			if (cache[ck] === 1 || cache[ck] === 0) {
+				if (cache[ck] === 1) validIds.push(cid);
+			} else {
+				missing.push(cid);
+			}
+		}
+		if (!missing.length) return Promise.resolve({ count: validIds.length, ids: validIds });
 		var idx = 0;
 		var next = function () {
-			if (idx >= list.length) return Promise.resolve({ count: validIds.length, ids: validIds });
-			var id = list[idx];
+			if (idx >= missing.length) {
+				if (cacheDirty) {
+					try {
+						var keys = Object.keys(cache);
+						if (keys.length > 200) {
+							for (var ki = 0; ki < keys.length - 200; ki += 1) delete cache[keys[ki]];
+						}
+						if (window.localStorage) window.localStorage.setItem(HOME_CROSS_LOG_CACHE_KEY, JSON.stringify(cache));
+					} catch (e) { /* ignore */ }
+				}
+				return Promise.resolve({ count: validIds.length, ids: validIds });
+			}
+			var id = missing[idx];
 			idx += 1;
-			if (typeof onProgress === 'function') onProgress(idx, list.length);
+			if (typeof onProgress === 'function') onProgress(idx, missing.length);
 			return siteFetch('/XianxiaZp/Interviewer/Log?id=' + encodeURIComponent(id), { credentials: 'same-origin' }).then(function (r) {
 				if (!r || r.ok === false) return '';
 				return r.text();
@@ -3526,9 +3617,12 @@ function formatNumberCopyText(row, mode) {
 					return r.json();
 				});
 			}).then(function (j) {
-				var logs = j && Array.isArray(j.data) ? j.data : [];
-				if (isCrossMonthInvalidToValid(logs, monthStart)) validIds.push(id);
-			}).catch(function () { /* 单条日志拉取失败不影响主流程 */ }).then(next);
+				if (!j || !Array.isArray(j.data)) return;
+				var hit = isCrossMonthInvalidToValid(j.data, monthStart);
+				cache[monthStart + ':' + id] = hit ? 1 : 0;
+				cacheDirty = true;
+				if (hit) validIds.push(id);
+			}).catch(function () { /* 单条日志拉取失败不缓存也不影响主流程 */ }).then(next);
 		};
 		return next();
 	}
@@ -3633,6 +3727,8 @@ function formatNumberCopyText(row, mode) {
 			+ '.dsh-home-split-left #dsh-home-root{padding:12px 14px}'
 			+ '.dsh-home-split-right{flex:1 1 50%;min-width:0;border-left:1px solid #e5e7eb;background:#fff;display:flex;flex-direction:column}'
 			+ '#dsh-home-split-iframe{width:100%;height:100%;min-height:680px;border:0;display:block;flex:1 1 auto}'
+			+ '.dsh-home-split.is-single .dsh-home-split-left{flex:1 1 100%}'
+			+ '.dsh-home-split.is-single .dsh-home-split-right{display:none}'
 			+ '@media (max-width:1024px){.dsh-home-split{flex-direction:column;height:auto}.dsh-home-split-right{border-left:0;border-top:1px solid #e5e7eb;min-height:680px}}'
 			+ '#dsh-home-root .dsh-chart-key--effect{color:#1d4ed8;font-weight:600}'
 			+ '#dsh-home-root .dsh-chart-key--daily{color:#3b82f6;font-weight:600}'
@@ -3829,8 +3925,11 @@ function formatNumberCopyText(row, mode) {
 				var oldRaw = window.localStorage.getItem(HOME_CACHE_KEY);
 				store = oldRaw ? JSON.parse(oldRaw) : null;
 			} catch (e) { store = null; }
-			if (!store || store.v !== VERSION || (store.user || '') !== user) {
-				store = { v: VERSION, user: user, months: {}, days: {} };
+			if (!store || (store.schema !== HOME_CACHE_SCHEMA && store.v !== VERSION) || (store.user || '') !== user) {
+				store = { schema: HOME_CACHE_SCHEMA, v: VERSION, user: user, months: {}, days: {} };
+			} else {
+				store.schema = HOME_CACHE_SCHEMA;
+				store.v = VERSION;
 			}
 			if (!store.months || typeof store.months !== 'object') store.months = {};
 			if (!store.days || typeof store.days !== 'object') store.days = {};
@@ -3888,7 +3987,7 @@ function formatNumberCopyText(row, mode) {
 			var raw = window.localStorage.getItem(HOME_CACHE_KEY);
 			if (!raw) return false;
 			var data = JSON.parse(raw);
-			if (!data || data.v !== VERSION || (data.user || '') !== currentUserName()) return false;
+			if (!data || (data.schema !== HOME_CACHE_SCHEMA && data.v !== VERSION) || (data.user || '') !== currentUserName()) return false;
 			var next = {};
 			var hasAny = false;
 			if (data.total) {
@@ -4000,10 +4099,9 @@ function formatNumberCopyText(row, mode) {
 			var trainRows = [];
 			var monthAllRows = [];
 			if (includeMonth) {
-				// 入职按「培训日期 = 本月」查询，包含上月面试通过本月入职的人；有效/到面数/趋势图按「面试日期 = 本月」拉取
+				// 入职按「培训日期 = 本月」一次拉回，本地拆出已培训+流失（省 1 次慢请求）；有效/到面数/趋势图按「面试日期 = 本月」拉取
 				var trainDt = meta.dateTypeTraining || '培训日期';
-				tasks.push({ key: 'monthTrainTrained', label: '月报 · 入职(已培训)', withTrainRows: true, spec: { status: '已培训', dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
-				tasks.push({ key: 'monthTrainLost', label: '月报 · 入职(流失)', withTrainRows: true, spec: { status: '流失', dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
+				tasks.push({ key: 'monthTrainAll', label: '月报 · 入职(培训日期)', withTrainAll: true, spec: { dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
 				tasks.push({ key: 'monthAll', label: '月报 · 整月到面明细', withMonthAll: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
 			}
 
@@ -4045,12 +4143,15 @@ function formatNumberCopyText(row, mode) {
 				var t = tasks[idx];
 				dashState.statusText = '查询中 (' + (idx + 1) + '/' + tasks.length + ')：' + t.label + '…';
 				paintDashboard();
-				var req = (t.withRows || t.withMonthAll || t.withTrainRows) ? queryListRows(meta, t.spec) : queryListCount(meta, t.spec);
+				var req = (t.withRows || t.withMonthAll || t.withTrainAll) ? queryListRows(meta, t.spec) : queryListCount(meta, t.spec);
 				return req.then(function (res) {
 					if (dashState.runId !== runId) return;
-					if (t.withTrainRows) {
-						dashState.counts[t.key] = res.count;
-						for (var ti = 0; ti < res.rows.length; ti += 1) trainRows.push(res.rows[ti]);
+					if (t.withTrainAll) {
+						var tSum = summarizeTrainRows(res.rows);
+						dashState.counts.monthTrainTrained = tSum.monthTrainTrained;
+						dashState.counts.monthTrainLost = tSum.monthTrainLost;
+						trainRows = tSum.trainRows;
+						paintDashboard();
 					} else if (t.withMonthAll) {
 						monthAllRows = res.rows;
 						var mSum = summarizeMonthRows(res.rows, res.count, dashState.month);
@@ -4065,6 +4166,7 @@ function formatNumberCopyText(row, mode) {
 						dashState.counts.monthChartYm = dashState.month;
 						dashState.counts.monthTruncatedNote = res.truncated ? ('超过翻页上限，当前统计前 ' + res.rows.length + ' 条') : '';
 						dashState.monthLoading = false;
+						paintDashboard();
 					} else if (t.withRows) {
 						dashState.counts[t.key] = res.count;
 						if (t.withRows === 'place') {
@@ -4183,10 +4285,18 @@ function formatNumberCopyText(row, mode) {
 			className: 'dsh-btn dsh-btn-sm' + (dashState.showChartLabels ? ' is-active' : ''),
 			text: dashState.showChartLabels ? '隐藏数字' : '显示数字',
 		});
+		var splitEnabled = splitList ? readHomeSplit() : false;
+		var splitToggleBtn = splitList ? h('button', {
+			type: 'button',
+			id: 'dsh-hm-split-toggle',
+			className: 'dsh-btn dsh-btn-sm',
+			text: splitEnabled ? '取消分屏' : '显示分屏',
+		}) : null;
 		var root = h('div', { id: 'dsh-home-root', className: dashState.showChartLabels ? '' : 'dsh-hide-nums' }, [
 			h('div', { className: 'dsh-hd' }, [
 				h('div', { className: 'dsh-hd-left' }, [
 					h('div', { className: 'dsh-title', text: '外宣邀约 · 数据主页' }),
+					splitToggleBtn,
 					user ? h('span', { id: 'dsh-hm-user-badge', className: 'dsh-badge', text: '账号：' + user }) : null,
 					h('span', { id: 'dsh-hm-status', className: 'dsh-status', text: '准备就绪' }),
 				]),
@@ -4284,13 +4394,25 @@ function formatNumberCopyText(row, mode) {
 			]),
 		]);
 		if (splitList) {
-			var splitWrap = h('div', { id: 'dsh-home-split', className: 'dsh-home-split' }, [
+			var splitIframe = h('iframe', splitEnabled
+				? { id: 'dsh-home-split-iframe', src: LIST_PAGE_PATH + '?dsh_split=1' }
+				: { id: 'dsh-home-split-iframe', 'data-src': LIST_PAGE_PATH + '?dsh_split=1' });
+			var splitWrap = h('div', { id: 'dsh-home-split', className: 'dsh-home-split' + (splitEnabled ? '' : ' is-single') }, [
 				h('div', { id: 'dsh-home-split-left', className: 'dsh-home-split-left' }, [root]),
-				h('div', { id: 'dsh-home-split-right', className: 'dsh-home-split-right' }, [
-					h('iframe', { id: 'dsh-home-split-iframe', src: LIST_PAGE_PATH + '?dsh_split=1' }),
-				]),
+				h('div', { id: 'dsh-home-split-right', className: 'dsh-home-split-right' }, [splitIframe]),
 			]);
 			pane.appendChild(splitWrap);
+			if (splitToggleBtn) {
+				splitToggleBtn.addEventListener('click', function () {
+					splitEnabled = saveHomeSplit(!splitEnabled);
+					splitToggleBtn.textContent = splitEnabled ? '取消分屏' : '显示分屏';
+					setClassFlag(splitWrap, 'is-single', !splitEnabled);
+					if (splitEnabled && !splitIframe.getAttribute('src')) {
+						splitIframe.setAttribute('src', splitIframe.getAttribute('data-src') || (LIST_PAGE_PATH + '?dsh_split=1'));
+					}
+					window.setTimeout(drawDashboardChart, 60);
+				});
+			}
 		} else {
 			pane.appendChild(root);
 		}
@@ -4618,7 +4740,9 @@ function formatNumberCopyText(row, mode) {
 				}, attempt === 0 ? 180 : (attempt === 1 ? 350 : 500));
 			};
 			if (!hasYaoyueListTabNow()) {
-				ensureDefaultListTab(0);
+				// 分屏开启时右侧列表 iframe 正在加载，错峰 1600ms 再开后台页签，避免同时抢占 ASP.NET Session 锁
+				if (readHomeSplit()) window.setTimeout(function () { ensureDefaultListTab(0); }, 1600);
+				else ensureDefaultListTab(0);
 			}
 		}
 	}
