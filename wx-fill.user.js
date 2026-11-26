@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.4.2
+// @version      2.4.3
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.4.2 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.4.3 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.4.2';
+	var VERSION = '2.4.3';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -3455,6 +3455,17 @@ function formatNumberCopyText(row, mode) {
 			+ '#dsh-home-root .dsh-sec-sub{font-size:12px;color:#6b7280;font-weight:400}'
 			+ '#dsh-home-root .dsh-ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}'
 			+ '#dsh-home-root .dsh-input{padding:4px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;color:#111827;background:#fff}'
+			+ '#dsh-home-root .dsh-month-wrap{position:relative;display:inline-flex;align-items:center}'
+			+ '#dsh-home-root .dsh-month-btn{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:0;background:transparent;padding:2px;cursor:pointer;color:#4b5563;display:inline-flex;align-items:center;justify-content:center;border-radius:4px}'
+			+ '#dsh-home-root .dsh-month-btn:hover{color:#1d4ed8;background:#eff6ff}'
+			+ '#dsh-home-root .dsh-month-pop{position:absolute;right:0;top:calc(100% + 4px);z-index:999999;width:196px;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.12);padding:8px;box-sizing:border-box}'
+			+ '#dsh-home-root .dsh-month-pop-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:12px;font-weight:700;color:#111827}'
+			+ '#dsh-home-root .dsh-month-pop-nav{border:1px solid #e5e7eb;background:#f9fafb;border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:12px;line-height:1;color:#374151;padding:0}'
+			+ '#dsh-home-root .dsh-month-pop-nav:hover{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}'
+			+ '#dsh-home-root .dsh-month-pop-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}'
+			+ '#dsh-home-root .dsh-month-pop-item{border:1px solid transparent;background:#f8fafc;border-radius:5px;padding:5px 0;font-size:12px;color:#374151;cursor:pointer;text-align:center}'
+			+ '#dsh-home-root .dsh-month-pop-item:hover{background:#eff6ff;color:#1d4ed8}'
+			+ '#dsh-home-root .dsh-month-pop-item.is-active{background:#2563eb;color:#fff;font-weight:600}'
 			+ '#dsh-home-root .dsh-grid-3{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:12px}'
 			+ '#dsh-home-root .dsh-grid-2{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:12px}'
 			+ '#dsh-home-root .dsh-grid-4{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px}'
@@ -3974,6 +3985,18 @@ function formatNumberCopyText(row, mode) {
 		postSelect.value = dashState.post;
 		var goalInput = h('input', { type: 'number', id: 'dsh-hm-goal-input', className: 'dsh-input', min: '1', step: '1', css: 'width:68px', value: String(dashState.goal) });
 		var monthInput = h('input', { type: 'month', id: 'dsh-hm-month-input', className: 'dsh-input', css: 'width:118px', value: dashState.month });
+		var supportsNativeMonth = monthInput.type === 'month';
+		var monthBtn = null;
+		var monthPop = null;
+		var monthControl = monthInput;
+		if (!supportsNativeMonth) {
+			monthInput.style.cssText = 'width:94px;padding-right:24px;box-sizing:border-box;cursor:pointer';
+			monthBtn = h('button', { type: 'button', id: 'dsh-hm-month-btn', className: 'dsh-month-btn', title: '选择月份' });
+			monthBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="11" rx="2"/><line x1="2" y1="6.5" x2="14" y2="6.5"/><line x1="5.5" y1="1.5" x2="5.5" y2="4"/><line x1="10.5" y1="1.5" x2="10.5" y2="4"/></svg>';
+			monthPop = h('div', { id: 'dsh-hm-month-pop', className: 'dsh-month-pop' });
+			monthPop.style.display = 'none';
+			monthControl = h('span', { id: 'dsh-hm-month-wrap', className: 'dsh-month-wrap' }, [monthInput, monthBtn, monthPop]);
+		}
 		var dayTodayBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-today', text: '今天' });
 		var dayYestBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-yest', text: '昨天' });
 		var dayBeforeBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-before', text: '前天' });
@@ -4014,7 +4037,7 @@ function formatNumberCopyText(row, mode) {
 						h('span', { css: 'font-size:12px;color:#6b7280', text: '目标：' }),
 						goalInput,
 						h('span', { css: 'font-size:12px;color:#6b7280', text: '面试月份：' }),
-						monthInput,
+						monthControl,
 					]),
 				]),
 				h('div', { className: 'dsh-grid-month' }, [
@@ -4087,12 +4110,68 @@ function formatNumberCopyText(row, mode) {
 			goalInput.value = String(dashState.goal);
 		});
 
-		monthInput.addEventListener('change', function () {
-			var v = String(monthInput.value || '').trim();
-			if (!v) return;
+		var applyMonth = function (rawVal) {
+			var v = String(rawVal || '').trim();
+			if (!/^\d{4}-\d{2}$/.test(v)) return;
+			if (v === dashState.month) return;
 			dashState.month = v;
 			loadDashboardData('month', false);
+		};
+		monthInput.addEventListener('change', function () {
+			applyMonth(monthInput.value);
 		});
+		if (!supportsNativeMonth && monthBtn && monthPop) {
+			var popYear = Number(String(dashState.month || '').slice(0, 4)) || new Date().getFullYear();
+			var paintMonthPop = function () {
+				monthPop.innerHTML = '';
+				var prevBtn = h('button', { type: 'button', className: 'dsh-month-pop-nav', text: '‹' });
+				var yearLbl = h('span', { text: popYear + '年' });
+				var nextBtn = h('button', { type: 'button', className: 'dsh-month-pop-nav', text: '›' });
+				prevBtn.addEventListener('click', function (e) { if (e && e.stopPropagation) e.stopPropagation(); popYear -= 1; paintMonthPop(); });
+				nextBtn.addEventListener('click', function (e) { if (e && e.stopPropagation) e.stopPropagation(); popYear += 1; paintMonthPop(); });
+				monthPop.appendChild(h('div', { className: 'dsh-month-pop-hd' }, [prevBtn, yearLbl, nextBtn]));
+				var grid = h('div', { className: 'dsh-month-pop-grid' });
+				for (var mi = 1; mi <= 12; mi += 1) {
+					(function (mNum) {
+						var mm = mNum < 10 ? ('0' + mNum) : String(mNum);
+						var ym = popYear + '-' + mm;
+						var item = h('button', {
+							type: 'button',
+							className: 'dsh-month-pop-item' + (ym === dashState.month ? ' is-active' : ''),
+							text: mNum + '月',
+						});
+						item.addEventListener('click', function (e) {
+							if (e && e.stopPropagation) e.stopPropagation();
+							monthInput.value = ym;
+							monthPop.style.display = 'none';
+							applyMonth(ym);
+						});
+						grid.appendChild(item);
+					})(mi);
+				}
+				monthPop.appendChild(grid);
+			};
+			var toggleMonthPop = function (e) {
+				if (e && e.stopPropagation) e.stopPropagation();
+				var isOpen = monthPop.style.display === 'block';
+				if (isOpen) {
+					monthPop.style.display = 'none';
+					return;
+				}
+				var curY = Number(String(monthInput.value || dashState.month || '').slice(0, 4));
+				if (Number.isFinite(curY) && curY > 2000) popYear = curY;
+				paintMonthPop();
+				monthPop.style.display = 'block';
+			};
+			monthBtn.addEventListener('click', toggleMonthPop);
+			monthInput.addEventListener('click', toggleMonthPop);
+			document.addEventListener('click', function (e) {
+				if (monthPop.style.display === 'none') return;
+				var tgt = e && e.target;
+				if (tgt && monthControl.contains && monthControl.contains(tgt)) return;
+				monthPop.style.display = 'none';
+			});
+		}
 
 		var setDay = function (iso) {
 			dashState.day = iso;
