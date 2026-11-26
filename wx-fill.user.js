@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.7.0
+// @version      2.8.2
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.7.0 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.8.2 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.7.0';
+	var VERSION = '2.8.2';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -462,6 +462,8 @@ function parseListMetaFromHtml(html) {
 		statusValues: {},
 		attendField: '',
 		attendValues: {},
+		interviewResultField: '',
+		interviewResultValues: {},
 		dateTypeField: '',
 		dateTypeInterview: '',
 		dateTypeTraining: '',
@@ -542,6 +544,17 @@ function parseListMetaFromHtml(html) {
 			opts.forEach(function (o) {
 				if (o.text === '是' || o.text === '否') meta.attendValues[o.text] = o.value || o.text;
 			});
+		}
+
+		var hasPassOpt = opts.some(function (o) { return o.text === '通过'; });
+		var hasFailOpt = opts.some(function (o) { return o.text === '不通过'; });
+		if ((hasPassOpt && hasFailOpt) || /interview_result/i.test(name)) {
+			if (!meta.interviewResultField || (hasPassOpt && hasFailOpt)) {
+				meta.interviewResultField = name;
+				opts.forEach(function (o) {
+					if (o.text === '通过' || o.text === '不通过') meta.interviewResultValues[o.text] = o.value || o.text;
+				});
+			}
 		}
 
 		var exactInterviewOpt = null;
@@ -647,6 +660,11 @@ function buildFilterJson(meta, spec) {
 		var atMap = m.attendValues || {};
 		obj[atKey] = atMap[s.attend] != null ? atMap[s.attend] : s.attend;
 	}
+	if (s.interviewResult) {
+		var irKey = m.interviewResultField || 'interview_result';
+		var irMap = m.interviewResultValues || {};
+		obj[irKey] = irMap[s.interviewResult] != null ? irMap[s.interviewResult] : s.interviewResult;
+	}
 	if (s.dateFrom || s.dateTo) {
 		var from = String(s.dateFrom || s.dateTo || '');
 		var to = String(s.dateTo || s.dateFrom || '');
@@ -710,7 +728,9 @@ function summarizeDashboard(counts) {
 	var mCrossValid = numOrNull(c.monthCrossValid);
 	var mValidParts = [mTrained, mLost, mWaitTrain, mCancelTrain, mReject];
 	var monthValidBase = sumIfReady(mValidParts);
-	var monthValid = monthValidBase === null ? null : monthValidBase + (mCrossValid && mCrossValid > 0 ? mCrossValid : 0);
+	var fastValidBase = numOrNull(c.monthFastValid);
+	var effectiveValidBase = monthValidBase !== null ? monthValidBase : fastValidBase;
+	var monthValid = effectiveValidBase === null ? null : effectiveValidBase + (mCrossValid && mCrossValid > 0 ? mCrossValid : 0);
 	var monthInvalidAttend = numOrNull(c.monthInvalidAttend);
 	var monthArrivedRaw = numOrNull(c.monthArrived);
 	var monthArrived = monthArrivedRaw !== null
@@ -734,7 +754,7 @@ function summarizeDashboard(counts) {
 		monthValid: monthValid,
 		monthJoinRate: formatDashboardRate(monthJoined, monthValid),
 		monthValidRate: formatDashboardRate(monthValid, monthArrived),
-		monthValidFormula: monthValid === null ? '' : (mValidParts.join(' + ') + (mCrossValid && mCrossValid > 0 ? ' + ' + mCrossValid : '')),
+		monthValidFormula: monthValidBase === null ? '' : (mValidParts.join(' + ') + (mCrossValid && mCrossValid > 0 ? ' + ' + mCrossValid : '')),
 		dayWaiting: numOrNull(c.dayWaiting),
 		dayInterviewed: numOrNull(c.dayInterviewed),
 		dayValid: numOrNull(c.dayValid),
@@ -3477,6 +3497,8 @@ function formatNumberCopyText(row, mode) {
 				statusValues: (hm.statusValues && Object.keys(hm.statusValues).length) ? hm.statusValues : (domMeta.statusValues || {}),
 				attendField: pick(hm.attendField, domMeta.attendField, 'is_attend'),
 				attendValues: (hm.attendValues && Object.keys(hm.attendValues).length) ? hm.attendValues : (domMeta.attendValues || {}),
+				interviewResultField: pick(hm.interviewResultField, domMeta.interviewResultField, ''),
+				interviewResultValues: (hm.interviewResultValues && Object.keys(hm.interviewResultValues).length) ? hm.interviewResultValues : (domMeta.interviewResultValues || {}),
 				dateTypeField: pick(hm.dateTypeField, domMeta.dateTypeField, ''),
 				dateTypeInterview: pick(hm.dateTypeInterview, domMeta.dateTypeInterview, ''),
 				dateTypeTraining: pick(hm.dateTypeTraining, domMeta.dateTypeTraining, '培训日期'),
@@ -3627,10 +3649,10 @@ function formatNumberCopyText(row, mode) {
 		return next();
 	}
 
-	/** 一次拉取 50 条（最多翻 10 页 = 500 条）以统计当月每日有效或当天地点/状态分布。 */
-	function queryListRows(meta, spec) {
+	/** 一次拉取 50 条（日报传 20 条更轻快；最多翻 10 页）以统计当月每日有效或当天地点/状态分布。 */
+	function queryListRows(meta, spec, customPageSize) {
 		var rows = [];
-		var pageSize = 50;
+		var pageSize = Number(customPageSize) > 0 ? Number(customPageSize) : 50;
 		var maxPages = 10;
 		var fetchPage = function (page) {
 			return queryListPage(meta, spec, page, pageSize).then(function (res) {
@@ -3716,8 +3738,9 @@ function formatNumberCopyText(row, mode) {
 			+ '#dsh-home-root.dsh-hide-nums .dsh-card-foot,#dsh-home-root.dsh-hide-nums .dsh-formula{display:none}'
 			+ '#dsh-home-root .dsh-sec-hint{font-size:12px;color:#1677ff;font-weight:500}'
 			+ '#dsh-home-root .dsh-chart-area{position:relative;flex:1 1 auto;display:flex;flex-direction:column;margin:4px 0 0;padding:22px 0 0;background:transparent;border:none;min-height:362px}'
-			+ '#dsh-home-root .dsh-chart-keys{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;font-size:11px;line-height:1;pointer-events:auto}'
-			+ '#dsh-home-root .dsh-chart-keys .dsh-btn{margin-left:auto;padding:2px 8px;font-size:11px;line-height:1.3}'
+			+ '#dsh-home-root .dsh-chart-keys{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:8px;font-size:11px;line-height:1;pointer-events:auto}'
+			+ '#dsh-home-root .dsh-chart-key--target{margin-right:auto}'
+			+ '#dsh-home-root .dsh-chart-keys .dsh-btn{padding:2px 8px;font-size:11px;line-height:1.3}'
 			+ '#dsh-home-root .dsh-chart-keys .dsh-btn.is-active{background:#eff6ff;color:#1d4ed8;border-color:#93c5fd}'
 			+ '#dsh-home-root .dsh-chart-num{font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round;pointer-events:none}'
 			+ '#dsh-home-root .dsh-chart-num.effect{fill:#1d4ed8}'
@@ -3903,7 +3926,7 @@ function formatNumberCopyText(row, mode) {
 			stEl.textContent = dashState.statusText + (dashState.updatedAt && !dashState.loading ? (' · 更新于 ' + dashState.updatedAt) : '');
 			stEl.className = 'dsh-status' + (dashState.statusBad ? ' bad' : '');
 		}
-		var refIds = ['dsh-hm-refresh', 'dsh-hm-refresh-total', 'dsh-hm-refresh-month', 'dsh-hm-refresh-day'];
+		var refIds = ['dsh-hm-refresh', 'dsh-hm-refresh-total', 'dsh-hm-refresh-month', 'dsh-hm-refresh-day', 'dsh-hm-month-detail', 'dsh-hm-chart-refresh'];
 		for (var ri = 0; ri < refIds.length; ri += 1) {
 			var refEl = byId(document, refIds[ri]);
 			if (refEl) refEl.disabled = dashState.loading;
@@ -4043,6 +4066,7 @@ function formatNumberCopyText(row, mode) {
 		dashState.statusText = '正在同步列表字段…';
 		var includeTotal = (scope === 'all' || scope === 'init' || scope === 'total');
 		var includeMonth = (scope === 'all' || scope === 'init' || scope === 'month');
+		var includeMonthDetail = (scope === 'monthDetail');
 		var includeDayInterviewed = (scope === 'all' || scope === 'init' || scope === 'day' || scope === 'dayAll');
 		var includeDayWaiting = (scope === 'all' || scope === 'init' || scope === 'dayAll');
 		if (includeTotal) {
@@ -4050,23 +4074,55 @@ function formatNumberCopyText(row, mode) {
 			dashState.counts.totalTrained = null;
 			dashState.counts.totalLost = null;
 		}
-		if (includeMonth) {
-			dashState.monthLoading = true;
+		if (includeMonth || includeMonthDetail) {
+			dashState.monthLoading = includeMonth;
+			dashState.monthAllRows = [];
+			dashState.monthAllYm = '';
+			dashState.monthAllTruncated = false;
 			dashState.counts.monthTrained = null;
 			dashState.counts.monthLost = null;
-			dashState.counts.monthTrainTrained = null;
-			dashState.counts.monthTrainLost = null;
+			if (includeMonth) {
+				dashState.counts.monthTrainTrained = null;
+				dashState.counts.monthTrainLost = null;
+				dashState.counts.monthFastValid = null;
+				dashState.counts.monthCrossValid = null;
+				dashState.counts.monthArrived = null;
+			}
 			dashState.counts.monthWaitTrain = null;
 			dashState.counts.monthCancelTrain = null;
 			dashState.counts.monthReject = null;
-			dashState.counts.monthCrossValid = null;
 			dashState.counts.monthInvalidAttend = null;
-			dashState.counts.monthArrived = null;
 			dashState.counts.monthDaily = {};
 			dashState.counts.monthCommunityRows = [];
 			dashState.counts.monthChartYm = '';
 			dashState.counts.monthTruncatedNote = '';
 		}
+		if (scope === 'day'
+			&& Array.isArray(dashState.monthAllRows)
+			&& dashState.monthAllRows.length > 0
+			&& !dashState.monthAllTruncated
+			&& dashState.monthAllYm === String(dashState.day || '').slice(0, 7)) {
+			var dayMatched = [];
+			for (var di = 0; di < dashState.monthAllRows.length; di += 1) {
+				var dr = dashState.monthAllRows[di];
+				if (dr && normalizeLogYmd(dr.interview_date) === dashState.day) dayMatched.push(dr);
+			}
+			dashState.counts.dayInterviewed = dayMatched.length;
+			var dsText = groupBreakdown(dayMatched, function (r) { return String(r && r.status_text || '').trim() || '未知状态'; });
+			dashState.counts.dayInterviewedBreakdown = dsText;
+			var ddSum = summarizeDayRows(dayMatched);
+			dashState.counts.dayValid = ddSum.dayValid;
+			dashState.counts.dayInvalid = ddSum.dayInvalid;
+			dashState.counts.dayValidBreakdown = ddSum.dayValidBreakdown;
+			dashState.loading = false;
+			dashState.dayLoading = false;
+			dashState.statusText = '就绪（已复用本月明细，0 请求）';
+			dashState.statusBad = false;
+			saveHomeCache();
+			paintDashboard();
+			return Promise.resolve();
+		}
+
 		if (includeDayInterviewed) {
 			dashState.dayLoading = true;
 			dashState.counts.dayInterviewed = null;
@@ -4096,13 +4152,40 @@ function formatNumberCopyText(row, mode) {
 			if (includeDayWaiting) {
 				tasks.push({ key: 'dayWaiting', label: '日报 · 等待面试', withRows: 'place', lastDayTask: true, spec: { status: '等待面试', attend: '是' } });
 			}
-			var trainRows = [];
+			var trainRows = Array.isArray(dashState.lastTrainRows) && dashState.lastTrainYm === dashState.month && includeMonthDetail
+				? dashState.lastTrainRows
+				: [];
 			var monthAllRows = [];
+			var crossResIds = Array.isArray(dashState.lastCrossResIds) && dashState.lastTrainYm === dashState.month && includeMonthDetail
+				? dashState.lastCrossResIds
+				: [];
+			var fastPassCount = null;
+			var fastRejectCount = null;
+			var hasIrFast = Boolean(
+				meta.interviewResultField
+				&& meta.interviewResultValues
+				&& meta.interviewResultValues['通过'] != null
+				&& meta.interviewResultValues['不通过'] != null
+			);
 			if (includeMonth) {
-				// 入职按「培训日期 = 本月」一次拉回，本地拆出已培训+流失（省 1 次慢请求）；有效/到面数/趋势图按「面试日期 = 本月」拉取
+				// 日常刷新仅走极速通道：pageSize=1 查 到面数 与 面试结果(通过+不通过) + 1 页培训日期入职与跨月日志；
+				// 耗时的整月明细与折线图改为点「明细」或「刷新折线图」按需拉取（若站点无 interview_result 字段则退回整月拉取）。
 				var trainDt = meta.dateTypeTraining || '培训日期';
+				if (hasIrFast) {
+					tasks.push({ key: 'monthArrived', label: '月报 · 到面数(速查)', isFastArrived: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
+					tasks.push({ key: 'monthPassFast', label: '月报 · 有效-通过(速查)', isFastPass: true, spec: { interviewResult: '通过', dateFrom: mr.start, dateTo: mr.end } });
+					tasks.push({ key: 'monthRejectFast', label: '月报 · 有效-不通过(速查)', isFastReject: true, spec: { interviewResult: '不通过', dateFrom: mr.start, dateTo: mr.end } });
+				}
 				tasks.push({ key: 'monthTrainAll', label: '月报 · 入职(培训日期)', withTrainAll: true, spec: { dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
-				tasks.push({ key: 'monthAll', label: '月报 · 整月到面明细', withMonthAll: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
+				if (!hasIrFast) {
+					tasks.push({ key: 'monthAll', label: '月报 · 整月到面明细与分社区统计', withMonthAll: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
+				}
+			} else if (includeMonthDetail) {
+				if (!(Array.isArray(dashState.lastTrainRows) && dashState.lastTrainYm === dashState.month)) {
+					var trainDt2 = meta.dateTypeTraining || '培训日期';
+					tasks.push({ key: 'monthTrainAll', label: '月报 · 入职(培训日期)', withTrainAll: true, spec: { dateType: trainDt2, dateFrom: mr.start, dateTo: mr.end } });
+				}
+				tasks.push({ key: 'monthAll', label: '月报 · 整月明细与折线图', withMonthAll: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
 			}
 
 			var finishLoad = function () {
@@ -4121,39 +4204,65 @@ function formatNumberCopyText(row, mode) {
 			var step = function (idx) {
 				if (dashState.runId !== runId) return Promise.resolve();
 				if (idx >= tasks.length) {
-					if (!includeMonth) return finishLoad();
-					var crossIds = collectCrossMonthCandidateIds(trainRows, mr.start);
-					if (!crossIds.length) {
-						dashState.counts.monthCrossValid = 0;
-						dashState.counts.monthCommunityRows = summarizeMonthByCommunity(monthAllRows, trainRows, []);
-						return finishLoad();
+					if (!includeMonth && !includeMonthDetail) return finishLoad();
+					if (monthAllRows.length > 0 || !hasIrFast || includeMonthDetail) {
+						dashState.counts.monthCommunityRows = summarizeMonthByCommunity(monthAllRows, trainRows, crossResIds);
 					}
-					dashState.monthLoading = true;
-					return fetchCrossMonthInvalidToValidCount(crossIds, mr.start, function (cur, total) {
-						if (dashState.runId !== runId) return;
-						dashState.statusText = '核对跨月转入职日志 (' + cur + '/' + total + ')…';
-						paintDashboard();
-					}).then(function (crossRes) {
-						if (dashState.runId !== runId) return;
-						dashState.counts.monthCrossValid = crossRes.count;
-						dashState.counts.monthCommunityRows = summarizeMonthByCommunity(monthAllRows, trainRows, crossRes.ids);
-						return finishLoad();
-					});
+					return finishLoad();
 				}
 				var t = tasks[idx];
-				dashState.statusText = '查询中 (' + (idx + 1) + '/' + tasks.length + ')：' + t.label + '…';
+				dashState.statusText = t.withMonthAll && dashState.counts.monthFastValid != null
+					? ('数字已就绪，正在后台补齐折线图与分社区明细 (' + (idx + 1) + '/' + tasks.length + ')…')
+					: ('查询中 (' + (idx + 1) + '/' + tasks.length + ')：' + t.label + '…');
 				paintDashboard();
-				var req = (t.withRows || t.withMonthAll || t.withTrainAll) ? queryListRows(meta, t.spec) : queryListCount(meta, t.spec);
+				var req = t.withRows
+					? queryListRows(meta, t.spec, 20)
+					: ((t.withMonthAll || t.withTrainAll) ? queryListRows(meta, t.spec) : queryListCount(meta, t.spec));
 				return req.then(function (res) {
 					if (dashState.runId !== runId) return;
-					if (t.withTrainAll) {
+					if (t.isFastArrived) {
+						dashState.counts.monthArrived = res;
+						paintDashboard();
+					} else if (t.isFastPass) {
+						fastPassCount = res;
+					} else if (t.isFastReject) {
+						fastRejectCount = res;
+						dashState.counts.monthFastValid = (fastPassCount || 0) + (fastRejectCount || 0);
+						paintDashboard();
+					} else if (t.withTrainAll) {
 						var tSum = summarizeTrainRows(res.rows);
 						dashState.counts.monthTrainTrained = tSum.monthTrainTrained;
 						dashState.counts.monthTrainLost = tSum.monthTrainLost;
 						trainRows = tSum.trainRows;
-						paintDashboard();
+						dashState.lastTrainRows = tSum.trainRows;
+						dashState.lastTrainYm = dashState.month;
+						var crossIds = collectCrossMonthCandidateIds(trainRows, mr.start);
+						if (!crossIds.length) {
+							dashState.counts.monthCrossValid = 0;
+							crossResIds = [];
+							dashState.lastCrossResIds = [];
+							if (dashState.counts.monthFastValid != null) dashState.monthLoading = false;
+							paintDashboard();
+							return step(idx + 1);
+						}
+						return fetchCrossMonthInvalidToValidCount(crossIds, mr.start, function (cur, total) {
+							if (dashState.runId !== runId) return;
+							dashState.statusText = '核对跨月转入职日志 (' + cur + '/' + total + ')…';
+							paintDashboard();
+						}).then(function (crossRes) {
+							if (dashState.runId !== runId) return;
+							dashState.counts.monthCrossValid = crossRes.count;
+							crossResIds = crossRes.ids || [];
+							dashState.lastCrossResIds = crossResIds;
+							if (dashState.counts.monthFastValid != null) dashState.monthLoading = false;
+							paintDashboard();
+							return step(idx + 1);
+						});
 					} else if (t.withMonthAll) {
 						monthAllRows = res.rows;
+						dashState.monthAllRows = res.rows;
+						dashState.monthAllYm = dashState.month;
+						dashState.monthAllTruncated = Boolean(res.truncated);
 						var mSum = summarizeMonthRows(res.rows, res.count, dashState.month);
 						dashState.counts.monthTrained = mSum.monthTrained;
 						dashState.counts.monthLost = mSum.monthLost;
@@ -4273,12 +4382,20 @@ function formatNumberCopyText(row, mode) {
 			monthPop.style.display = 'none';
 			monthControl = h('span', { id: 'dsh-hm-month-wrap', className: 'dsh-month-wrap' }, [monthInput, monthBtn, monthPop]);
 		}
+		var monthDetailBtn = h('button', { type: 'button', className: 'dsh-btn dsh-btn-sm', id: 'dsh-hm-month-detail', title: '拉取整月明细（生成 5 项公式、每日折线图与分社区复制表）', text: '明细' });
 		var monthCopyBtn = h('button', { type: 'button', className: 'dsh-btn dsh-btn-sm', id: 'dsh-hm-month-copy', title: '复制分社区月报（可直接粘贴到 Excel / 腾讯表格）', text: '复制' });
 		var dayTodayBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-today', text: '今天' });
 		var dayYestBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-yest', text: '昨天' });
 		var dayBeforeBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-before', text: '前天' });
 		var dayInput = h('input', { type: 'date', id: 'dsh-hm-day-input', className: 'dsh-input', value: dashState.day });
 
+		var chartRefreshBtn = h('button', {
+			type: 'button',
+			id: 'dsh-hm-chart-refresh',
+			className: 'dsh-btn dsh-btn-sm',
+			title: '拉取整月明细并重绘本月每日折线图',
+			text: '刷新折线图',
+		});
 		var chartNumBtn = h('button', {
 			type: 'button',
 			id: 'dsh-hm-chart-toggle-nums',
@@ -4319,6 +4436,7 @@ function formatNumberCopyText(row, mode) {
 				h('div', { className: 'dsh-sec-hd' }, [
 					h('div', { className: 'dsh-sec-title' }, [
 						h('span', { text: '月报' }),
+						monthDetailBtn,
 						monthCopyBtn,
 						h('span', { className: 'dsh-sec-sub', id: 'dsh-hm-month-range', text: mr.shortStart + ' ~ ' + mr.shortEnd }),
 						h('span', { id: 'dsh-hm-month-status', className: 'dsh-sec-hint', text: '' }),
@@ -4388,6 +4506,7 @@ function formatNumberCopyText(row, mode) {
 					h('span', { className: 'dsh-chart-key--effect', text: '累计有效' }),
 					h('span', { className: 'dsh-chart-key--daily', text: '每天有效' }),
 					h('span', { id: 'dsh-hm-chart-target-key', className: 'dsh-chart-key--target', text: '日均两人' }),
+					chartRefreshBtn,
 					chartNumBtn,
 				]),
 				h('div', { id: 'dsh-hm-chart-canvas', className: 'dsh-chart-canvas' }),
@@ -4416,6 +4535,13 @@ function formatNumberCopyText(row, mode) {
 		} else {
 			pane.appendChild(root);
 		}
+
+		monthDetailBtn.addEventListener('click', function () {
+			loadDashboardData('monthDetail', false);
+		});
+		chartRefreshBtn.addEventListener('click', function () {
+			loadDashboardData('monthDetail', false);
+		});
 
 		chartNumBtn.addEventListener('click', function () {
 			dashState.showChartLabels = saveHomeChartLabels(!dashState.showChartLabels);
