@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.4.3
+// @version      2.5.0
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.4.3 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.5.0 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.4.3';
+	var VERSION = '2.5.0';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -678,6 +678,13 @@ function buildListDataUrl(meta, dataJson) {
 	return '/Basic/Component/ListData?' + parts.join('&');
 }
 
+function formatDashboardRate(num, den) {
+	if (typeof num !== 'number' || typeof den !== 'number' || !Number.isFinite(num) || !Number.isFinite(den) || den <= 0) {
+		return '—';
+	}
+	return ((num / den) * 100).toFixed(1) + '%';
+}
+
 function summarizeDashboard(counts) {
 	var c = counts || {};
 	var numOrNull = function (v) { return typeof v === 'number' && Number.isFinite(v) ? v : null; };
@@ -725,6 +732,8 @@ function summarizeDashboard(counts) {
 		monthArrived: monthArrived,
 		monthJoined: monthJoined,
 		monthValid: monthValid,
+		monthJoinRate: formatDashboardRate(monthJoined, monthValid),
+		monthValidRate: formatDashboardRate(monthValid, monthArrived),
 		monthValidFormula: monthValid === null ? '' : (mValidParts.join(' + ') + (mCrossValid && mCrossValid > 0 ? ' + ' + mCrossValid + '跨月' : '')),
 		dayWaiting: numOrNull(c.dayWaiting),
 		dayInterviewed: numOrNull(c.dayInterviewed),
@@ -862,6 +871,78 @@ function summarizeMonthRows(rows, totalCount, ym) {
 	counts.monthArrived = Number.isFinite(tc) && tc >= list.length ? tc : list.length;
 	counts.monthDaily = extractMonthDailyCounts(validRows, ym);
 	return counts;
+}
+
+function summarizeMonthByCommunity(monthAllRows, trainRows, crossValidIds) {
+	var all = Array.isArray(monthAllRows) ? monthAllRows : [];
+	var trs = Array.isArray(trainRows) ? trainRows : [];
+	var crossSet = {};
+	var cIds = Array.isArray(crossValidIds) ? crossValidIds : [];
+	for (var ci = 0; ci < cIds.length; ci += 1) {
+		var cid = String(cIds[ci] || '').trim();
+		if (cid) crossSet[cid] = true;
+	}
+	var map = {};
+	var ensure = function (row) {
+		var name = String((row && (row.organize_name || row.jd_name)) || '').trim() || '未分配社区';
+		if (!map[name]) {
+			map[name] = { community: name, arrived: 0, passed: 0, invalid: 0, valid: 0, joined: 0 };
+		}
+		return map[name];
+	};
+	var passSet = { '已培训': true, '流失': true, '等待培训': true, '取消培训': true };
+	for (var i = 0; i < all.length; i += 1) {
+		var r = all[i];
+		if (!r) continue;
+		var bucket = ensure(r);
+		var st = rowStatusText(r);
+		if (passSet[st]) {
+			bucket.passed += 1;
+			bucket.valid += 1;
+			bucket.arrived += 1;
+		} else if (st === '面试拒绝') {
+			bucket.valid += 1;
+			bucket.arrived += 1;
+		} else if (st === '无效到面') {
+			bucket.invalid += 1;
+			bucket.arrived += 1;
+		}
+	}
+	for (var j = 0; j < trs.length; j += 1) {
+		var tr = trs[j];
+		if (!tr) continue;
+		var tBucket = ensure(tr);
+		tBucket.joined += 1;
+		if (tr.id != null && crossSet[String(tr.id).trim()]) {
+			tBucket.passed += 1;
+			tBucket.valid += 1;
+		}
+	}
+	return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) {
+		if (b.arrived !== a.arrived) return b.arrived - a.arrived;
+		if (b.valid !== a.valid) return b.valid - a.valid;
+		if (b.joined !== a.joined) return b.joined - a.joined;
+		return a.community < b.community ? -1 : (a.community > b.community ? 1 : 0);
+	});
+}
+
+function formatMonthCommunityTsv(communityRows) {
+	var rows = Array.isArray(communityRows) ? communityRows : [];
+	var lines = ['社区\t职位数\t到面数\t通过\t无效\t有效\t入职'];
+	for (var i = 0; i < rows.length; i += 1) {
+		var r = rows[i];
+		if (!r) continue;
+		lines.push([
+			String(r.community || ''),
+			'',
+			Number(r.arrived || 0),
+			Number(r.passed || 0),
+			Number(r.invalid || 0),
+			Number(r.valid || 0),
+			Number(r.joined || 0),
+		].join('\t'));
+	}
+	return lines.join('\n');
 }
 
 function summarizeDayRows(rows) {
@@ -3377,11 +3458,11 @@ function formatNumberCopyText(row, mode) {
 	/** 查询单条记录的日志页 + ListData，判断是否属于「上月无效 -> 本月改判入职/流失」。 */
 	function fetchCrossMonthInvalidToValidCount(ids, monthStart, onProgress) {
 		var list = Array.isArray(ids) ? ids : [];
-		if (!list.length) return Promise.resolve(0);
-		var validCount = 0;
+		if (!list.length) return Promise.resolve({ count: 0, ids: [] });
+		var validIds = [];
 		var idx = 0;
 		var next = function () {
-			if (idx >= list.length) return Promise.resolve(validCount);
+			if (idx >= list.length) return Promise.resolve({ count: validIds.length, ids: validIds });
 			var id = list[idx];
 			idx += 1;
 			if (typeof onProgress === 'function') onProgress(idx, list.length);
@@ -3402,7 +3483,7 @@ function formatNumberCopyText(row, mode) {
 				});
 			}).then(function (j) {
 				var logs = j && Array.isArray(j.data) ? j.data : [];
-				if (isCrossMonthInvalidToValid(logs, monthStart)) validCount += 1;
+				if (isCrossMonthInvalidToValid(logs, monthStart)) validIds.push(id);
 			}).catch(function () { /* 单条日志拉取失败不影响主流程 */ }).then(next);
 		};
 		return next();
@@ -3469,10 +3550,18 @@ function formatNumberCopyText(row, mode) {
 			+ '#dsh-home-root .dsh-grid-3{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:12px}'
 			+ '#dsh-home-root .dsh-grid-2{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:12px}'
 			+ '#dsh-home-root .dsh-grid-4{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px}'
-			+ '#dsh-home-root .dsh-grid-month{display:grid;grid-template-columns:2fr 3fr 2fr;gap:12px}'
+			+ '#dsh-home-root .dsh-btn.dsh-btn-sm{padding:3px 9px;font-size:11px;border-radius:999px}'
+			+ '#dsh-home-root .dsh-grid-month{display:grid;grid-template-columns:2fr 3fr 2fr;gap:12px;overflow:visible}'
 			+ '@media (max-width:780px){#dsh-home-root .dsh-grid-3,#dsh-home-root .dsh-grid-2,#dsh-home-root .dsh-grid-month{grid-template-columns:1fr}#dsh-home-root .dsh-grid-4{grid-template-columns:repeat(2,minmax(150px,1fr))}}'
 			+ '@media (max-width:520px){#dsh-home-root .dsh-grid-4{grid-template-columns:1fr}}'
-			+ '#dsh-home-root .dsh-card{background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px}'
+			+ '#dsh-home-root .dsh-card{position:relative;overflow:visible;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px}'
+			+ '#dsh-home-root .dsh-rate-art{position:absolute;top:-15px;right:10px;z-index:3;pointer-events:none;display:inline-flex;align-items:baseline;gap:4px;padding:2px 10px 3px;border-radius:999px;background:rgba(255,255,255,.94);border:1px solid rgba(15,23,42,.08);box-shadow:0 6px 16px rgba(15,23,42,.12);transform:rotate(-4deg);transform-origin:right center}'
+			+ '#dsh-home-root .dsh-rate-art-lbl{font-size:11px;font-weight:700;letter-spacing:.08em;color:#475569;font-style:normal}'
+			+ '#dsh-home-root .dsh-rate-art-val{font-family:Georgia,"Times New Roman","Songti SC",serif;font-size:24px;font-weight:900;font-style:italic;line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}'
+			+ '#dsh-home-root .dsh-rate-art.green{border-color:#a7f3d0;box-shadow:0 6px 16px rgba(5,150,105,.18)}'
+			+ '#dsh-home-root .dsh-rate-art.green .dsh-rate-art-val{background:linear-gradient(135deg,#047857 0%,#10b981 55%,#059669 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#059669;filter:drop-shadow(0 2px 4px rgba(5,150,105,.22))}'
+			+ '#dsh-home-root .dsh-rate-art.accent{border-color:#bfdbfe;box-shadow:0 6px 16px rgba(29,78,216,.18)}'
+			+ '#dsh-home-root .dsh-rate-art.accent .dsh-rate-art-val{background:linear-gradient(135deg,#1d4ed8 0%,#3b82f6 52%,#6366f1 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#1d4ed8;filter:drop-shadow(0 2px 4px rgba(29,78,216,.22))}'
 			+ '#dsh-home-root .dsh-card.accent{background:#eff6ff;border-color:#bfdbfe}'
 			+ '#dsh-home-root .dsh-card.green{background:#ecfdf5;border-color:#a7f3d0}'
 			+ '#dsh-home-root .dsh-card.red{background:#fef2f2;border-color:#fecaca}'
@@ -3613,7 +3702,9 @@ function formatNumberCopyText(row, mode) {
 		var mjLost = s.monthTrainLost !== null ? s.monthTrainLost : s.monthLost;
 		setText('dsh-hm-month-joined', dashState.monthLoading && s.monthJoined === null ? '…' : fmtVal(s.monthJoined));
 		setText('dsh-hm-month-joined-sub', s.monthJoined === null ? '培训日期：已培训 + 流失' : ('培训日期：已培训 ' + mjTrained + ' + 流失 ' + mjLost));
+		setText('dsh-hm-month-join-rate', dashState.monthLoading && s.monthJoinRate === '—' ? '…' : s.monthJoinRate);
 		setText('dsh-hm-month-valid', dashState.monthLoading && s.monthValid === null ? '…' : fmtVal(s.monthValid));
+		setText('dsh-hm-month-valid-rate', dashState.monthLoading && s.monthValidRate === '—' ? '…' : s.monthValidRate);
 		setText('dsh-hm-month-valid-formula', s.monthValidFormula ? ('（' + s.monthValidFormula + '）') : '');
 		setText('dsh-hm-month-valid-sub', s.monthValid === null
 			? '已培训 + 流失 + 等待培训 + 取消培训 + 面试拒绝'
@@ -3708,6 +3799,7 @@ function formatNumberCopyText(row, mode) {
 					monthInvalidAttend: c.monthInvalidAttend,
 					monthArrived: c.monthArrived,
 					monthDaily: c.monthDaily || {},
+					monthCommunityRows: Array.isArray(c.monthCommunityRows) ? c.monthCommunityRows : [],
 					monthTruncatedNote: c.monthTruncatedNote || '',
 				};
 			}
@@ -3760,6 +3852,7 @@ function formatNumberCopyText(row, mode) {
 				next.monthInvalidAttend = mEntry.monthInvalidAttend;
 				next.monthArrived = mEntry.monthArrived;
 				next.monthDaily = mEntry.monthDaily || {};
+				next.monthCommunityRows = Array.isArray(mEntry.monthCommunityRows) ? mEntry.monthCommunityRows : [];
 				next.monthChartYm = dashState.month;
 				next.monthTruncatedNote = mEntry.monthTruncatedNote || '';
 				hasAny = true;
@@ -3810,6 +3903,7 @@ function formatNumberCopyText(row, mode) {
 			dashState.counts.monthInvalidAttend = null;
 			dashState.counts.monthArrived = null;
 			dashState.counts.monthDaily = {};
+			dashState.counts.monthCommunityRows = [];
 			dashState.counts.monthChartYm = '';
 			dashState.counts.monthTruncatedNote = '';
 		}
@@ -3843,6 +3937,7 @@ function formatNumberCopyText(row, mode) {
 				tasks.push({ key: 'dayWaiting', label: '日报 · 等待面试', withRows: 'place', lastDayTask: true, spec: { status: '等待面试', attend: '是' } });
 			}
 			var trainRows = [];
+			var monthAllRows = [];
 			if (includeMonth) {
 				// 入职按「培训日期 = 本月」查询，包含上月面试通过本月入职的人；有效/到面数/趋势图按「面试日期 = 本月」拉取
 				var trainDt = meta.dateTypeTraining || '培训日期';
@@ -3871,6 +3966,7 @@ function formatNumberCopyText(row, mode) {
 					var crossIds = collectCrossMonthCandidateIds(trainRows, mr.start);
 					if (!crossIds.length) {
 						dashState.counts.monthCrossValid = 0;
+						dashState.counts.monthCommunityRows = summarizeMonthByCommunity(monthAllRows, trainRows, []);
 						return finishLoad();
 					}
 					dashState.monthLoading = true;
@@ -3878,9 +3974,10 @@ function formatNumberCopyText(row, mode) {
 						if (dashState.runId !== runId) return;
 						dashState.statusText = '核对跨月转入职日志 (' + cur + '/' + total + ')…';
 						paintDashboard();
-					}).then(function (crossValidCount) {
+					}).then(function (crossRes) {
 						if (dashState.runId !== runId) return;
-						dashState.counts.monthCrossValid = crossValidCount;
+						dashState.counts.monthCrossValid = crossRes.count;
+						dashState.counts.monthCommunityRows = summarizeMonthByCommunity(monthAllRows, trainRows, crossRes.ids);
 						return finishLoad();
 					});
 				}
@@ -3894,6 +3991,7 @@ function formatNumberCopyText(row, mode) {
 						dashState.counts[t.key] = res.count;
 						for (var ti = 0; ti < res.rows.length; ti += 1) trainRows.push(res.rows[ti]);
 					} else if (t.withMonthAll) {
+						monthAllRows = res.rows;
 						var mSum = summarizeMonthRows(res.rows, res.count, dashState.month);
 						dashState.counts.monthTrained = mSum.monthTrained;
 						dashState.counts.monthLost = mSum.monthLost;
@@ -3997,6 +4095,7 @@ function formatNumberCopyText(row, mode) {
 			monthPop.style.display = 'none';
 			monthControl = h('span', { id: 'dsh-hm-month-wrap', className: 'dsh-month-wrap' }, [monthInput, monthBtn, monthPop]);
 		}
+		var monthCopyBtn = h('button', { type: 'button', className: 'dsh-btn dsh-btn-sm', id: 'dsh-hm-month-copy', title: '复制分社区月报（可直接粘贴到 Excel / 腾讯表格）', text: '复制' });
 		var dayTodayBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-today', text: '今天' });
 		var dayYestBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-yest', text: '昨天' });
 		var dayBeforeBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-before', text: '前天' });
@@ -4028,6 +4127,7 @@ function formatNumberCopyText(row, mode) {
 				h('div', { className: 'dsh-sec-hd' }, [
 					h('div', { className: 'dsh-sec-title' }, [
 						h('span', { text: '月报' }),
+						monthCopyBtn,
 						h('span', { className: 'dsh-sec-sub', id: 'dsh-hm-month-range', text: mr.shortStart + ' ~ ' + mr.shortEnd }),
 						h('span', { id: 'dsh-hm-month-status', className: 'dsh-sec-hint', text: '' }),
 					]),
@@ -4041,8 +4141,20 @@ function formatNumberCopyText(row, mode) {
 					]),
 				]),
 				h('div', { className: 'dsh-grid-month' }, [
-					mkCard('green', '入职', 'dsh-hm-month-joined', '培训日期：已培训 + 流失', 'dsh-hm-month-joined-sub'),
+					h('div', { className: 'dsh-card green' }, [
+						h('div', { className: 'dsh-rate-art green' }, [
+							h('span', { className: 'dsh-rate-art-lbl', text: '入职率' }),
+							h('span', { className: 'dsh-rate-art-val', id: 'dsh-hm-month-join-rate', text: '—' }),
+						]),
+						h('div', { className: 'dsh-card-label', text: '入职' }),
+						h('div', { className: 'dsh-card-val', id: 'dsh-hm-month-joined', text: '—' }),
+						h('div', { className: 'dsh-card-foot', id: 'dsh-hm-month-joined-sub', text: '培训日期：已培训 + 流失' }),
+					]),
 					h('div', { className: 'dsh-card accent' }, [
+						h('div', { className: 'dsh-rate-art accent' }, [
+							h('span', { className: 'dsh-rate-art-lbl', text: '有效率' }),
+							h('span', { className: 'dsh-rate-art-val', id: 'dsh-hm-month-valid-rate', text: '—' }),
+						]),
 						h('div', { className: 'dsh-card-label', text: '有效' }),
 						h('div', { className: 'dsh-card-val-row' }, [
 							h('div', { className: 'dsh-card-val', id: 'dsh-hm-month-valid', text: '—' }),
@@ -4117,6 +4229,24 @@ function formatNumberCopyText(row, mode) {
 			dashState.month = v;
 			loadDashboardData('month', false);
 		};
+		monthCopyBtn.addEventListener('click', function () {
+			var cRows = dashState.counts && Array.isArray(dashState.counts.monthCommunityRows)
+				? dashState.counts.monthCommunityRows
+				: [];
+			if (!cRows.length) {
+				toast('暂无分社区月报明细，请先点「刷新月报」或「刷新全部」', true);
+				return;
+			}
+			var tsv = formatMonthCommunityTsv(cRows);
+			if (copyTextFallback(tsv)) {
+				monthCopyBtn.textContent = '已复制 ✓';
+				window.setTimeout(function () { monthCopyBtn.textContent = '复制'; }, 1600);
+				toast('已复制 ' + cRows.length + ' 个社区的月报明细（可直接粘贴到 Excel / 腾讯表格）');
+			} else {
+				toast('复制失败，请检查浏览器剪贴板权限', true);
+			}
+		});
+
 		monthInput.addEventListener('change', function () {
 			applyMonth(monthInput.value);
 		});
