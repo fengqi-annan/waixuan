@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.6.4
+// @version      2.6.5
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.6.4 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.6.5 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.6.4';
+	var VERSION = '2.6.5';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -4561,20 +4561,50 @@ function formatNumberCopyText(row, mode) {
 		}
 		nativeLi.addEventListener('click', activateHome);
 		// 每次打开或刷新 /Home/Main 时，除了主页再默认打开一个「邀约列表」页签，并保持当前焦点停留在主页
+		// Firefox 沙箱下 layui/index 可能晚于脚本挂载，这里带短重试并在未出现时兜底 openManually / 侧边栏菜单点击
 		if (!header.__dshDefaultListOpened) {
 			header.__dshDefaultListOpened = true;
-			var hasYaoyueListTab = false;
-			var curTabs = header.querySelectorAll('li');
-			for (var ti = 0; ti < curTabs.length; ti += 1) {
-				if (String(curTabs[ti].getAttribute && curTabs[ti].getAttribute('lay-id') || '').indexOf(LIST_PAGE_PATH) >= 0) {
-					hasYaoyueListTab = true;
-					break;
+			var hasYaoyueListTabNow = function () {
+				var curTabs = header.querySelectorAll('li');
+				for (var ti = 0; ti < curTabs.length; ti += 1) {
+					if (String(curTabs[ti].getAttribute && curTabs[ti].getAttribute('lay-id') || '').indexOf(LIST_PAGE_PATH) >= 0) {
+						return true;
+					}
 				}
-			}
-			if (!hasYaoyueListTab) {
-				openAsTab(LIST_PAGE_PATH, '邀约列表');
-				window.setTimeout(activateHome, 40);
-				window.setTimeout(activateHome, 240);
+				return false;
+			};
+			var ensureDefaultListTab = function (attempt) {
+				if (hasYaoyueListTabNow()) {
+					activateHome();
+					window.setTimeout(activateHome, 120);
+					return;
+				}
+				if (attempt === 0) {
+					openAsTab(LIST_PAGE_PATH, '邀约列表');
+				} else if (attempt === 1) {
+					openViaPage(LIST_PAGE_PATH, '邀约列表');
+				} else if (attempt === 2) {
+					var sideLink = document.querySelector
+						? document.querySelector('a[lay-href*="' + LIST_PAGE_PATH + '"], [data-href*="' + LIST_PAGE_PATH + '"], [data-url*="' + LIST_PAGE_PATH + '"]')
+						: null;
+					if (sideLink && typeof sideLink.click === 'function') sideLink.click();
+					else openManually(LIST_PAGE_PATH, '邀约列表');
+				} else {
+					openManually(LIST_PAGE_PATH, '邀约列表');
+				}
+				window.setTimeout(function () {
+					if (hasYaoyueListTabNow()) {
+						activateHome();
+						window.setTimeout(activateHome, 120);
+					} else if (attempt < 3) {
+						ensureDefaultListTab(attempt + 1);
+					} else {
+						activateHome();
+					}
+				}, attempt === 0 ? 180 : (attempt === 1 ? 350 : 500));
+			};
+			if (!hasYaoyueListTabNow()) {
+				ensureDefaultListTab(0);
 			}
 		}
 	}
