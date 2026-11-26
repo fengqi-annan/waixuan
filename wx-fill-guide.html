@@ -201,19 +201,29 @@
       color: var(--mint);
     }
     .hero-site-link {
+      display: inline;
+      padding: 2px 10px;
+      margin: 0 3px;
+      border: 1px solid rgba(142, 216, 197, .38);
+      border-radius: 999px;
+      background: rgba(142, 216, 197, .12);
       color: var(--mint);
-      text-decoration: underline;
-      text-underline-offset: 4px;
-      text-decoration-color: rgba(142, 216, 197, .55);
-      transition: color .16s ease, text-decoration-color .16s ease;
+      text-decoration: none;
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+      transition: color .16s ease, background .16s ease, border-color .16s ease;
+    }
+    .hero-site-link code {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font-size: .92em;
     }
     .hero-site-link:hover {
       color: #ffffff;
-      text-decoration-color: #ffffff;
-    }
-    .hero-site-link:hover code {
-      color: #ffffff;
-      border-color: rgba(255, 255, 255, .45);
+      border-color: rgba(142, 216, 197, .75);
+      background: rgba(142, 216, 197, .22);
     }
     .hero-actions {
       position: relative;
@@ -626,7 +636,7 @@
           <h1>外宣邀约 · 填表助手</h1>
         </div>
         <p class="hero-desc">
-          一个<strong>只对<a class="hero-site-link" href="http://wx.qgxkt.doupeixun.cn/" target="_blank" rel="noopener">外宣网站（<code>wx.qgxkt.doupeixun.cn</code>）↗</a>生效</strong>的油猴脚本，用来省掉每天填邀约与看报表时重复的那几步。它不会替你提交任何东西 —— <strong>「提交」永远是你自己点</strong>。
+          一个<strong>只对外宣网站 <a class="hero-site-link" href="http://wx.qgxkt.doupeixun.cn/" target="_blank" rel="noopener"><code>wx.qgxkt.doupeixun.cn</code> ↗</a> 生效</strong>的油猴脚本，用来省掉每天填邀约与看报表时重复的那几步。它不会替你提交任何东西 —— <strong>「提交」永远是你自己点</strong>。
         </p>
         <div class="hero-actions">
           <a class="btn-primary" href="https://waixuan.pages.dev/wx-fill.user.js" target="_blank" rel="noopener">安装脚本 ↗</a>
