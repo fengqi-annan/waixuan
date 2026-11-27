@@ -368,6 +368,19 @@
     }
     .kv-chip span { color: var(--muted); }
     .kv-chip strong { color: var(--teal-deep); }
+    .pill-orange {
+      display: inline;
+      padding: 2px 10px;
+      margin: 0 2px;
+      border: 1px solid rgba(217, 91, 38, .34);
+      border-radius: 999px;
+      background: rgba(230, 95, 60, .11);
+      color: #b8421a;
+      font-weight: 600;
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+    }
+    .pill-orange strong { color: #9c3310; font-weight: 700; }
 
     /* ===== 安装步骤 + Edge 必看（双栏图纸面板） ===== */
     .info-grid { display: grid; grid-template-columns: .95fr 1.05fr; align-items: stretch; gap: 22px; }
@@ -672,7 +685,7 @@
               <li>在主界面采用<strong>左 50% 数据仪表盘 + 右 50% 精简邀约列表</strong>分屏布局，标题右侧可随时点 <strong>「取消分屏 / 显示分屏」</strong> 切换（右侧分屏列表仅保留快捷筛选胶囊与序号复制胶囊）；在任意页面按 <kbd>P</kbd> 键也可一键切回或弹出仪表盘；</li>
               <li><strong>默认只读取本地缓存、不自动联网</strong>，需要最新数据时点右上角 <strong>「刷新全部」</strong>，或单独点 <strong>「刷新日报」/「刷新月报」/「刷新入职」</strong>；</li>
               <li><strong>总计</strong>展示全时段已培训 / 流失 / 总入职；</li>
-              <li><strong>月报</strong>按 <code>培训日期 = 本月</code> 统计入职、按 <code>面试日期 = 本月</code> 统计有效与到面数（自动核对跨月转入职操作日志，将上月无效本月改判入职/流失的记录计入有效），入职与有效卡片右上角展示 <strong>入职率 / 有效率</strong>；月报旁点 <strong>「复制」</strong> 可一键导出分社区明细（Excel / 腾讯表格格式）；月份选择器兼容 Firefox 自定义选月浮层，且支持选择默认岗位与目标人数；</li>
+              <li><strong>月报</strong>按 <code>培训日期 = 本月</code> 统计入职、按 <code>面试日期 = 本月</code> 统计有效与到面数（自动核对跨月转入职操作日志，将上月无效本月改判入职/流失的记录计入有效），入职与有效卡片右上角展示 <strong>入职率 / 有效率</strong>；<span class="pill-orange">月报旁先点 <strong>「明细」</strong> 生成分社区数据，再点 <strong>「复制」</strong>，自行粘贴到个人表格中以供进一步分析或使用</span>；支持切换月份、选择默认岗位与目标人数；</li>
               <li><strong>日报</strong>支持今天 / 昨天 / 前天及任意日期即时查询；底部双折线图（累计有效 / 每天有效）支持随时切换 <strong>「显示数字 / 隐藏数字」</strong>（隐藏时同步收起卡片底部灰色小字与公式）。</li>
             </ul>
           </div>
