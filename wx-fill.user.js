@@ -4496,13 +4496,15 @@ function formatNumberCopyText(row, mode) {
 							dashState.counts.dayInvalid = dSum.dayInvalid;
 							dashState.counts.dayValidBreakdown = dSum.dayValidBreakdown;
 							dashState.dayLoadedIso = dashState.day;
-							if (!includeMonth && String(dashState.day || '').slice(0, 7) === dashState.month) {
+							if (String(dashState.day || '').slice(0, 7) === dashState.month) {
 								var ddKey = dashState.day.slice(8, 10);
 								if (dashState.counts.monthChartYm === dashState.month) {
 									var nextDaily = Object.assign({}, dashState.counts.monthDaily || {});
 									nextDaily[ddKey] = dSum.dayValid;
 									dashState.counts.monthDaily = nextDaily;
 								}
+							}
+							if (!includeMonth && String(dashState.day || '').slice(0, 7) === dashState.month) {
 								if (dashState.counts.monthValidSource !== 'fast'
 									&& Array.isArray(dashState.monthAllRows)
 									&& dashState.monthAllRows.length > 0
