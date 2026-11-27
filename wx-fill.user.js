@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.8.7
+// @version      2.9.1
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.8.7 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.9.1 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.8.7';
+	var VERSION = '2.9.1';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -3672,14 +3672,17 @@ function formatNumberCopyText(row, mode) {
 		return next();
 	}
 
-	/** 一次拉取 50 条（日报传 20 条更轻快；最多翻 10 页）以统计当月每日有效或当天地点/状态分布。 */
-	function queryListRows(meta, spec, customPageSize) {
+	/** 一次拉取 50 条（日报传 20 条更轻快；最多翻 10 页），支持每页回调 onPage 逐页渐进出图。 */
+	function queryListRows(meta, spec, customPageSize, onPage) {
 		var rows = [];
 		var pageSize = Number(customPageSize) > 0 ? Number(customPageSize) : 50;
 		var maxPages = 10;
 		var fetchPage = function (page) {
 			return queryListPage(meta, spec, page, pageSize).then(function (res) {
 				for (var i = 0; i < res.rows.length; i += 1) rows.push(res.rows[i]);
+				if (typeof onPage === 'function') {
+					try { onPage(rows.slice(), res.count, page); } catch (e) { /* ignore */ }
+				}
 				if (rows.length < res.count && res.rows.length >= pageSize && page < maxPages) {
 					return fetchPage(page + 1);
 				}
@@ -3812,7 +3815,20 @@ function formatNumberCopyText(row, mode) {
 		return typeof v === 'number' && Number.isFinite(v) ? String(v) : '—';
 	}
 
-	function drawDashboardChart() {
+	function stopChartReplay() {
+		if (dashState.chartReplayTimer) {
+			try { window.clearInterval(dashState.chartReplayTimer); } catch (e) { /* ignore */ }
+			dashState.chartReplayTimer = null;
+		}
+		dashState.chartReplayDay = 0;
+		var btn = byId(document, 'dsh-hm-chart-replay');
+		if (btn) {
+			btn.className = 'dsh-btn dsh-btn-sm';
+			btn.textContent = '历史轨迹';
+		}
+	}
+
+	function drawDashboardChart(maxVisibleDays) {
 		var canvas = byId(document, 'dsh-hm-chart-canvas');
 		var targetKey = byId(document, 'dsh-hm-chart-target-key');
 		var model = buildMonthChartModel(dashState.counts.monthDaily || {}, dashState.month, today(), dashState.goal);
@@ -3823,6 +3839,9 @@ function formatNumberCopyText(row, mode) {
 			canvas.innerHTML = '';
 			return;
 		}
+		var visibleLimit = (typeof maxVisibleDays === 'number' && maxVisibleDays > 0)
+			? maxVisibleDays
+			: (dashState.chartReplayDay > 0 ? dashState.chartReplayDay : 0);
 		var box = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null;
 		var w = box && box.width >= 60 ? Math.round(box.width) : 860;
 		var h = box && box.height >= 40 ? Math.round(box.height) : 340;
@@ -3855,11 +3874,12 @@ function formatNumberCopyText(row, mode) {
 			+ '" y2="' + yOf(ref.to.value).toFixed(1) + '"></line>';
 
 		var drawSeries = function (cls, points, label) {
+			var pts = visibleLimit > 0 ? points.slice(0, visibleLimit) : points;
 			var coords = [];
 			var dots = '';
 			var nums = '';
-			for (var i = 0; i < points.length; i += 1) {
-				var pt = points[i];
+			for (var i = 0; i < pts.length; i += 1) {
+				var pt = pts[i];
 				var cx = xOf(pt.day);
 				var cy = yOf(pt.value);
 				coords.push(cx.toFixed(1) + ',' + cy.toFixed(1));
@@ -3916,8 +3936,11 @@ function formatNumberCopyText(row, mode) {
 				: ('已培训 ' + s.monthTrained + ' + 流失 ' + s.monthLost + ' + 等待培训 ' + s.monthWaitTrain + ' + 取消培训 ' + s.monthCancelTrain + ' + 面试拒绝 ' + s.monthReject
 					+ (s.monthCrossValid && s.monthCrossValid > 0 ? (' + 跨月改有效 ' + s.monthCrossValid) : ''))));
 		setText('dsh-hm-month-arrived', dashState.monthLoading && s.monthArrived === null ? '…' : fmtVal(s.monthArrived));
-		setText('dsh-hm-month-arrived-sub', (s.monthValid !== null && s.monthInvalidAttend !== null)
-			? ('有效 ' + s.monthValid + ' + 无效 ' + s.monthInvalidAttend)
+		var mInvalidDisplay = s.monthInvalidAttend !== null
+			? s.monthInvalidAttend
+			: (s.monthArrived !== null && s.monthValid !== null ? Math.max(0, s.monthArrived - s.monthValid) : null);
+		setText('dsh-hm-month-arrived-sub', (s.monthValid !== null && mInvalidDisplay !== null)
+			? ('有效 ' + s.monthValid + ' + 无效 ' + mInvalidDisplay)
 			: '有效 + 无效');
 
 		setText('dsh-hm-day-status', dashState.dayLoading ? '正在刷新日报…' : '');
@@ -3951,7 +3974,7 @@ function formatNumberCopyText(row, mode) {
 			stEl.textContent = dashState.statusText + (dashState.updatedAt && !dashState.loading ? (' · 更新于 ' + dashState.updatedAt) : '');
 			stEl.className = 'dsh-status' + (dashState.statusBad ? ' bad' : '');
 		}
-		var refIds = ['dsh-hm-refresh', 'dsh-hm-refresh-total', 'dsh-hm-refresh-month', 'dsh-hm-refresh-day', 'dsh-hm-month-detail'];
+		var refIds = ['dsh-hm-refresh', 'dsh-hm-refresh-total', 'dsh-hm-refresh-month', 'dsh-hm-refresh-day', 'dsh-hm-month-detail', 'dsh-hm-month-cross'];
 		for (var ri = 0; ri < refIds.length; ri += 1) {
 			var refEl = byId(document, refIds[ri]);
 			if (refEl) refEl.disabled = dashState.loading;
@@ -4092,6 +4115,7 @@ function formatNumberCopyText(row, mode) {
 		var includeTotal = (scope === 'all' || scope === 'init' || scope === 'total');
 		var includeMonth = (scope === 'all' || scope === 'init' || scope === 'month');
 		var includeMonthDetail = (scope === 'monthDetail');
+		var includeMonthCross = (scope === 'monthCross');
 		var includeDayInterviewed = (scope === 'all' || scope === 'init' || scope === 'day' || scope === 'dayAll');
 		var includeDayWaiting = (scope === 'all' || scope === 'init' || scope === 'dayAll');
 		if (includeTotal) {
@@ -4100,6 +4124,7 @@ function formatNumberCopyText(row, mode) {
 			dashState.counts.totalLost = null;
 		}
 		if (includeMonth || includeMonthDetail) {
+			stopChartReplay();
 			dashState.monthLoading = includeMonth;
 			if (includeMonth) {
 				dashState.counts.monthTrainTrained = null;
@@ -4195,8 +4220,8 @@ function formatNumberCopyText(row, mode) {
 				&& meta.interviewResultValues['不通过'] != null
 			);
 			if (includeMonth) {
-				// 日常刷新仅走极速通道：pageSize=1 查 到面数 与 面试结果(通过+不通过)；
-				// 若本月已扫过跨月名单，入职也用 2 次 pageSize=1（已培训+流失）并直接复用缓存的跨月 +N；首次刷新本月则拉 1 次培训日期明细建档。
+				// 日常刷新全走极速 pageSize=1 通道（到面数 + 面试结果通过/不通过 + 已培训/流失），不再自动扫跨月或拉整月明细；
+				// 跨月无效转入职仅在点「跨月」时检查，且同会话复用；整月明细仅拉「通过 + 不通过」（跳过无效到面，到面数-有效=无效）。
 				var trainDt = meta.dateTypeTraining || '培训日期';
 				var cachedMonthCross = hasIrFast ? readCachedMonthCrossResult(mr.start) : null;
 				if (hasIrFast) {
@@ -4204,22 +4229,30 @@ function formatNumberCopyText(row, mode) {
 					tasks.push({ key: 'monthPassFast', label: '月报 · 有效-通过(速查)', isFastPass: true, spec: { interviewResult: '通过', dateFrom: mr.start, dateTo: mr.end } });
 					tasks.push({ key: 'monthRejectFast', label: '月报 · 有效-不通过(速查)', isFastReject: true, spec: { interviewResult: '不通过', dateFrom: mr.start, dateTo: mr.end } });
 				}
-				if (cachedMonthCross) {
-					dashState.counts.monthCrossValid = cachedMonthCross.count;
-					crossResIds = cachedMonthCross.ids || [];
+				if (hasIrFast) {
+					dashState.counts.monthCrossValid = cachedMonthCross ? cachedMonthCross.count : 0;
+					crossResIds = cachedMonthCross ? (cachedMonthCross.ids || []) : [];
 					dashState.lastCrossResIds = crossResIds;
 					tasks.push({ key: 'monthTrainTrained', label: '月报 · 入职-已培训(速查)', spec: { status: '已培训', dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
 					tasks.push({ key: 'monthTrainLost', label: '月报 · 入职-流失(速查)', lastFastTrain: true, spec: { status: '流失', dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
 				} else {
 					tasks.push({ key: 'monthTrainAll', label: '月报 · 入职(培训日期)', withTrainAll: true, spec: { dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
-				}
-				if (!hasIrFast) {
 					tasks.push({ key: 'monthAll', label: '月报 · 整月到面明细与分社区统计', withMonthAll: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
 				}
+			} else if (includeMonthCross) {
+				var trainDtCross = meta.dateTypeTraining || '培训日期';
+				tasks.push({ key: 'monthTrainAll', label: '月报 · 核对跨月转入职', withTrainAll: true, spec: { dateType: trainDtCross, dateFrom: mr.start, dateTo: mr.end } });
 			} else if (includeMonthDetail) {
-				var trainDt2 = meta.dateTypeTraining || '培训日期';
-				tasks.push({ key: 'monthTrainAll', label: '月报 · 入职(培训日期)', withTrainAll: true, spec: { dateType: trainDt2, dateFrom: mr.start, dateTo: mr.end } });
-				tasks.push({ key: 'monthAll', label: '月报 · 整月明细（有效细分 / 折线图 / 分社区）', withMonthAll: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
+				if (!(Array.isArray(dashState.lastTrainRows) && dashState.lastTrainYm === dashState.month)) {
+					var trainDt2 = meta.dateTypeTraining || '培训日期';
+					tasks.push({ key: 'monthTrainOnly', label: '月报 · 入职明细(培训日期)', withTrainOnly: true, spec: { dateType: trainDt2, dateFrom: mr.start, dateTo: mr.end } });
+				}
+				if (hasIrFast) {
+					tasks.push({ key: 'monthValidPassRows', label: '月报 · 通过明细(逐页出图)', withValidPart: 'pass', spec: { interviewResult: '通过', dateFrom: mr.start, dateTo: mr.end } });
+					tasks.push({ key: 'monthValidFailRows', label: '月报 · 面试拒绝明细', withValidPart: 'fail', spec: { interviewResult: '不通过', dateFrom: mr.start, dateTo: mr.end } });
+				} else {
+					tasks.push({ key: 'monthAll', label: '月报 · 整月明细（有效细分 / 折线图 / 分社区）', withMonthAll: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
+				}
 			}
 
 			var finishLoad = function () {
@@ -4238,22 +4271,32 @@ function formatNumberCopyText(row, mode) {
 			var step = function (idx) {
 				if (dashState.runId !== runId) return Promise.resolve();
 				if (idx >= tasks.length) {
-					if (!includeMonth && !includeMonthDetail) return finishLoad();
-					if (monthAllRows.length > 0 || !hasIrFast || includeMonthDetail) {
-						dashState.counts.monthCommunityRows = summarizeMonthByCommunity(monthAllRows, trainRows, crossResIds);
+					if (!includeMonth && !includeMonthDetail && !includeMonthCross) return finishLoad();
+					if (monthAllRows.length > 0 || !hasIrFast || includeMonthDetail || (includeMonthCross && Array.isArray(dashState.counts.monthCommunityRows) && dashState.counts.monthCommunityRows.length)) {
+						var srcRowsForComm = monthAllRows.length ? monthAllRows : (dashState.monthAllRows || []);
+						if (srcRowsForComm.length || trainRows.length) {
+							dashState.counts.monthCommunityRows = summarizeMonthByCommunity(srcRowsForComm, trainRows, crossResIds);
+						}
 					}
 					return finishLoad();
 				}
 				var t = tasks[idx];
-				dashState.statusText = t.withMonthAll && dashState.counts.monthFastValid != null
-					? ('数字已就绪，正在后台补齐折线图与分社区明细 (' + (idx + 1) + '/' + tasks.length + ')…')
-					: ('查询中 (' + (idx + 1) + '/' + tasks.length + ')：' + t.label + '…');
+				dashState.statusText = '查询中 (' + (idx + 1) + '/' + tasks.length + ')：' + t.label + '…';
 				paintDashboard();
+				var onPageProgress = (t.withMonthAll || t.withValidPart) ? function (accRows, totalCount, pageNo) {
+					if (dashState.runId !== runId) return;
+					var partialRows = t.withValidPart === 'fail' ? monthAllRows.concat(accRows) : accRows;
+					var pSum = summarizeMonthRows(partialRows, dashState.counts.monthArrived != null ? dashState.counts.monthArrived : totalCount, dashState.month);
+					dashState.counts.monthDaily = pSum.monthDaily;
+					dashState.counts.monthChartYm = dashState.month;
+					dashState.statusText = '拉取' + t.label + '（第 ' + pageNo + ' 页，已取 ' + accRows.length + '/' + totalCount + ' 条）…';
+					paintDashboard();
+				} : null;
 				var req = t.withRows
 					? queryListRows(meta, t.spec, 20)
-					: (t.withTrainAll
+					: ((t.withTrainAll || t.withTrainOnly)
 						? queryListRows(meta, t.spec, 30)
-						: (t.withMonthAll ? queryListRows(meta, t.spec) : queryListCount(meta, t.spec)));
+						: ((t.withMonthAll || t.withValidPart) ? queryListRows(meta, t.spec, 50, onPageProgress) : queryListCount(meta, t.spec)));
 				return req.then(function (res) {
 					if (dashState.runId !== runId) return;
 					if (t.isFastArrived) {
@@ -4265,6 +4308,38 @@ function formatNumberCopyText(row, mode) {
 						fastRejectCount = res;
 						dashState.counts.monthFastValid = (fastPassCount || 0) + (fastRejectCount || 0);
 						paintDashboard();
+					} else if (t.withTrainOnly) {
+						var toSum = summarizeTrainRows(res.rows);
+						dashState.counts.monthTrainTrained = toSum.monthTrainTrained;
+						dashState.counts.monthTrainLost = toSum.monthTrainLost;
+						trainRows = toSum.trainRows;
+						dashState.lastTrainRows = toSum.trainRows;
+						dashState.lastTrainYm = dashState.month;
+						paintDashboard();
+					} else if (t.withValidPart) {
+						if (t.withValidPart === 'pass') {
+							monthAllRows = res.rows.slice();
+						} else {
+							for (var vi = 0; vi < res.rows.length; vi += 1) monthAllRows.push(res.rows[vi]);
+						}
+						var vSum = summarizeMonthRows(monthAllRows, dashState.counts.monthArrived != null ? dashState.counts.monthArrived : monthAllRows.length, dashState.month);
+						dashState.counts.monthTrained = vSum.monthTrained;
+						dashState.counts.monthLost = vSum.monthLost;
+						dashState.counts.monthWaitTrain = vSum.monthWaitTrain;
+						dashState.counts.monthCancelTrain = vSum.monthCancelTrain;
+						dashState.counts.monthReject = vSum.monthReject;
+						dashState.counts.monthInvalidAttend = dashState.counts.monthArrived != null
+							? Math.max(0, dashState.counts.monthArrived - (vSum.monthTrained + vSum.monthLost + vSum.monthWaitTrain + vSum.monthCancelTrain + vSum.monthReject + (dashState.counts.monthCrossValid || 0)))
+							: vSum.monthInvalidAttend;
+						dashState.counts.monthDaily = vSum.monthDaily;
+						dashState.counts.monthChartYm = dashState.month;
+						if (t.withValidPart === 'fail') {
+							dashState.monthAllRows = monthAllRows;
+							dashState.monthAllYm = dashState.month;
+							dashState.monthAllTruncated = Boolean(res.truncated);
+							dashState.monthLoading = false;
+						}
+						paintDashboard();
 					} else if (t.withTrainAll) {
 						var tSum = summarizeTrainRows(res.rows);
 						dashState.counts.monthTrainTrained = tSum.monthTrainTrained;
@@ -4272,6 +4347,7 @@ function formatNumberCopyText(row, mode) {
 						trainRows = tSum.trainRows;
 						dashState.lastTrainRows = tSum.trainRows;
 						dashState.lastTrainYm = dashState.month;
+						dashState.lastCrossCheckedYm = dashState.month;
 						var crossIds = collectCrossMonthCandidateIds(trainRows, mr.start);
 						if (!crossIds.length) {
 							dashState.counts.monthCrossValid = 0;
@@ -4421,13 +4497,21 @@ function formatNumberCopyText(row, mode) {
 			monthPop.style.display = 'none';
 			monthControl = h('span', { id: 'dsh-hm-month-wrap', className: 'dsh-month-wrap' }, [monthInput, monthBtn, monthPop]);
 		}
-		var monthDetailBtn = h('button', { type: 'button', className: 'dsh-btn dsh-btn-sm', id: 'dsh-hm-month-detail', title: '拉取整月明细（生成 5 项公式、每日折线图与分社区复制表）', text: '明细' });
+		var monthDetailBtn = h('button', { type: 'button', className: 'dsh-btn dsh-btn-sm', id: 'dsh-hm-month-detail', title: '拉取有效明细（补全 5 项公式、逐页绘制折线图与分社区复制表）', text: '明细' });
+		var monthCrossBtn = h('button', { type: 'button', className: 'dsh-btn dsh-btn-sm', id: 'dsh-hm-month-cross', title: '核对上月无效本月改判入职/流失的跨月记录（同会话复用）', text: '跨月' });
 		var monthCopyBtn = h('button', { type: 'button', className: 'dsh-btn dsh-btn-sm', id: 'dsh-hm-month-copy', title: '复制分社区月报（可直接粘贴到 Excel / 腾讯表格）', text: '复制' });
 		var dayTodayBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-today', text: '今天' });
 		var dayYestBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-yest', text: '昨天' });
 		var dayBeforeBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-before', text: '前天' });
 		var dayInput = h('input', { type: 'date', id: 'dsh-hm-day-input', className: 'dsh-input', value: dashState.day });
 
+		var chartReplayBtn = h('button', {
+			type: 'button',
+			id: 'dsh-hm-chart-replay',
+			className: 'dsh-btn dsh-btn-sm',
+			title: '间隔 500ms 依次演示本月每一天的折线绘制轨迹',
+			text: '历史轨迹',
+		});
 		var chartNumBtn = h('button', {
 			type: 'button',
 			id: 'dsh-hm-chart-toggle-nums',
@@ -4470,6 +4554,7 @@ function formatNumberCopyText(row, mode) {
 					h('div', { className: 'dsh-sec-title' }, [
 						h('span', { text: '月报' }),
 						monthDetailBtn,
+						monthCrossBtn,
 						monthCopyBtn,
 						h('span', { className: 'dsh-sec-sub', id: 'dsh-hm-month-range', text: mr.shortStart + ' ~ ' + mr.shortEnd }),
 						h('span', { id: 'dsh-hm-month-status', className: 'dsh-sec-hint', text: '' }),
@@ -4539,6 +4624,7 @@ function formatNumberCopyText(row, mode) {
 					h('span', { className: 'dsh-chart-key--effect', text: '累计有效' }),
 					h('span', { className: 'dsh-chart-key--daily', text: '每天有效' }),
 					h('span', { id: 'dsh-hm-chart-target-key', className: 'dsh-chart-key--target', text: '日均两人' }),
+					chartReplayBtn,
 					chartNumBtn,
 				]),
 				h('div', { id: 'dsh-hm-chart-canvas', className: 'dsh-chart-canvas' }),
@@ -4570,6 +4656,48 @@ function formatNumberCopyText(row, mode) {
 
 		monthDetailBtn.addEventListener('click', function () {
 			loadDashboardData('monthDetail', false);
+		});
+		monthCrossBtn.addEventListener('click', function () {
+			if (dashState.lastCrossCheckedYm === dashState.month && Array.isArray(dashState.lastCrossResIds)) {
+				dashState.counts.monthCrossValid = dashState.lastCrossResIds.length;
+				dashState.statusText = '跨月记录已核对（同会话复用，' + dashState.lastCrossResIds.length + ' 条）';
+				dashState.statusBad = false;
+				paintDashboard();
+				return;
+			}
+			loadDashboardData('monthCross', false);
+		});
+
+		chartReplayBtn.addEventListener('click', function () {
+			if (dashState.chartReplayTimer) {
+				stopChartReplay();
+				drawDashboardChart();
+				return;
+			}
+			var model = buildMonthChartModel(dashState.counts.monthDaily || {}, dashState.month, today(), dashState.goal);
+			var totalPts = model.cumulativePoints ? model.cumulativePoints.length : 0;
+			if (dashState.counts.monthChartYm !== dashState.month || !model.hasData || totalPts <= 0) {
+				toast('暂无本月折线图数据，请先点「明细」拉取', true);
+				return;
+			}
+			dashState.chartReplayDay = 1;
+			chartReplayBtn.className = 'dsh-btn dsh-btn-sm is-active';
+			chartReplayBtn.textContent = '停止轨迹 (1/' + totalPts + ')';
+			drawDashboardChart(1);
+			if (totalPts <= 1) {
+				window.setTimeout(function () { stopChartReplay(); }, 500);
+				return;
+			}
+			dashState.chartReplayTimer = window.setInterval(function () {
+				dashState.chartReplayDay += 1;
+				if (dashState.chartReplayDay >= totalPts) {
+					stopChartReplay();
+					drawDashboardChart();
+					return;
+				}
+				chartReplayBtn.textContent = '停止轨迹 (' + dashState.chartReplayDay + '/' + totalPts + ')';
+				drawDashboardChart(dashState.chartReplayDay);
+			}, 500);
 		});
 
 		chartNumBtn.addEventListener('click', function () {
@@ -4605,6 +4733,12 @@ function formatNumberCopyText(row, mode) {
 			if (!/^\d{4}-\d{2}$/.test(v)) return;
 			if (v === dashState.month) return;
 			dashState.month = v;
+			if (v < today().slice(0, 7) && loadHomeCache() && dashState.counts.monthChartYm === v) {
+				dashState.statusText = '已读历史月份本地缓存（0 请求）';
+				dashState.statusBad = false;
+				paintDashboard();
+				return;
+			}
 			loadDashboardData('month', false);
 		};
 		monthCopyBtn.addEventListener('click', function () {
