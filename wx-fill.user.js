@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.9.3
+// @version      2.9.4
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.9.3 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.9.4 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.9.3';
+	var VERSION = '2.9.4';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -3769,7 +3769,13 @@ function formatNumberCopyText(row, mode) {
 			+ '#dsh-home-root .dsh-grid-3{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:12px}'
 			+ '#dsh-home-root .dsh-grid-2{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:12px}'
 			+ '#dsh-home-root .dsh-grid-4{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px}'
-			+ '#dsh-home-root .dsh-btn.dsh-btn-sm{padding:3px 9px;font-size:11px;border-radius:999px}'
+			+ '#dsh-home-root .dsh-btn.dsh-btn-sm{padding:3px 9px;font-size:11px;border-radius:999px;font-weight:600}'
+			+ '#dsh-home-root .dsh-btn.dsh-btn-sm.purple{background:#f5f3ff;border-color:#c4b5fd;color:#7c3aed}'
+			+ '#dsh-home-root .dsh-btn.dsh-btn-sm.purple:hover{background:#ede9fe;border-color:#a78bfa}'
+			+ '#dsh-home-root .dsh-btn.dsh-btn-sm.accent{background:#eff6ff;border-color:#93c5fd;color:#1d4ed8}'
+			+ '#dsh-home-root .dsh-btn.dsh-btn-sm.accent:hover{background:#dbeafe;border-color:#60a5fa}'
+			+ '#dsh-home-root .dsh-btn.dsh-btn-sm.red{background:#fef2f2;border-color:#fca5a5;color:#ef4444}'
+			+ '#dsh-home-root .dsh-btn.dsh-btn-sm.red:hover{background:#fee2e2;border-color:#f87171}'
 			+ '#dsh-home-root .dsh-grid-month{display:grid;grid-template-columns:2fr 3fr 2fr;gap:12px;overflow:visible}'
 			+ '@media (max-width:780px){#dsh-home-root .dsh-grid-3,#dsh-home-root .dsh-grid-2,#dsh-home-root .dsh-grid-month{grid-template-columns:1fr}#dsh-home-root .dsh-grid-4{grid-template-columns:repeat(2,minmax(150px,1fr))}}'
 			+ '@media (max-width:520px){#dsh-home-root .dsh-grid-4{grid-template-columns:1fr}}'
@@ -4541,9 +4547,9 @@ function formatNumberCopyText(row, mode) {
 			monthPop.style.display = 'none';
 			monthControl = h('span', { id: 'dsh-hm-month-wrap', className: 'dsh-month-wrap' }, [monthInput, monthBtn, monthPop]);
 		}
-		var monthDetailBtn = h('button', { type: 'button', className: 'dsh-btn dsh-btn-sm', id: 'dsh-hm-month-detail', title: '拉取有效明细（补全 5 项公式、逐页绘制折线图与分社区复制表）', text: '明细' });
-		var monthCrossBtn = h('button', { type: 'button', className: 'dsh-btn dsh-btn-sm', id: 'dsh-hm-month-cross', title: '核对上月无效本月改判入职/流失的跨月记录（同会话复用）', text: '跨月' });
-		var monthCopyBtn = h('button', { type: 'button', className: 'dsh-btn dsh-btn-sm', id: 'dsh-hm-month-copy', title: '复制分社区月报（可直接粘贴到 Excel / 腾讯表格）', text: '复制' });
+		var monthCrossBtn = h('button', { type: 'button', className: 'dsh-btn dsh-btn-sm purple', id: 'dsh-hm-month-cross', title: '核对上月无效本月改判入职/流失的跨月记录（同会话复用）', text: '跨月' });
+		var monthDetailBtn = h('button', { type: 'button', className: 'dsh-btn dsh-btn-sm accent', id: 'dsh-hm-month-detail', title: '拉取有效明细（补全 5 项公式、逐页绘制折线图与分社区复制表）', text: '明细' });
+		var monthCopyBtn = h('button', { type: 'button', className: 'dsh-btn dsh-btn-sm red', id: 'dsh-hm-month-copy', title: '复制分社区月报（可直接粘贴到 Excel / 腾讯表格）', text: '复制' });
 		var dayTodayBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-today', text: '今天' });
 		var dayYestBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-yest', text: '昨天' });
 		var dayBeforeBtn = h('button', { type: 'button', className: 'dsh-btn', id: 'dsh-hm-day-before', text: '前天' });
@@ -4597,8 +4603,8 @@ function formatNumberCopyText(row, mode) {
 				h('div', { className: 'dsh-sec-hd' }, [
 					h('div', { className: 'dsh-sec-title' }, [
 						h('span', { text: '月报' }),
-						monthDetailBtn,
 						monthCrossBtn,
+						monthDetailBtn,
 						monthCopyBtn,
 						h('span', { className: 'dsh-sec-sub', id: 'dsh-hm-month-range', text: mr.shortStart + ' ~ ' + mr.shortEnd }),
 						h('span', { id: 'dsh-hm-month-status', className: 'dsh-sec-hint', text: '' }),
