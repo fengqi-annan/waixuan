@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.9.4
+// @version      2.9.5
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.9.4 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.9.5 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.9.4';
+	var VERSION = '2.9.5';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -4292,12 +4292,7 @@ function formatNumberCopyText(row, mode) {
 					var trainDt2 = meta.dateTypeTraining || '培训日期';
 					tasks.push({ key: 'monthTrainOnly', label: '月报 · 入职明细(培训日期)', withTrainOnly: true, spec: { dateType: trainDt2, dateFrom: mr.start, dateTo: mr.end } });
 				}
-				if (hasIrFast) {
-					tasks.push({ key: 'monthValidPassRows', label: '月报 · 通过明细(逐页出图)', withValidPart: 'pass', spec: { interviewResult: '通过', dateFrom: mr.start, dateTo: mr.end } });
-					tasks.push({ key: 'monthValidFailRows', label: '月报 · 面试拒绝明细', withValidPart: 'fail', spec: { interviewResult: '不通过', dateFrom: mr.start, dateTo: mr.end } });
-				} else {
-					tasks.push({ key: 'monthAll', label: '月报 · 整月明细（有效细分 / 折线图 / 分社区）', withMonthAll: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
-				}
+				tasks.push({ key: 'monthAll', label: '月报 · 整月明细（有效细分 / 折线图 / 分社区）', withMonthAll: true, spec: { dateFrom: mr.start, dateTo: mr.end } });
 			}
 
 			var finishLoad = function () {
