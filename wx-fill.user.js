@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.8.3
+// @version      2.8.5
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.8.3 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.8.5 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.8.3';
+	var VERSION = '2.8.5';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -3911,8 +3911,10 @@ function formatNumberCopyText(row, mode) {
 		setText('dsh-hm-month-valid-formula', s.monthValidFormula ? ('（' + s.monthValidFormula + '）') : '');
 		setText('dsh-hm-month-valid-sub', s.monthValid === null
 			? '已培训 + 流失 + 等待培训 + 取消培训 + 面试拒绝'
-			: ('已培训 ' + s.monthTrained + ' + 流失 ' + s.monthLost + ' + 等待培训 ' + s.monthWaitTrain + ' + 取消培训 ' + s.monthCancelTrain + ' + 面试拒绝 ' + s.monthReject
-				+ (s.monthCrossValid && s.monthCrossValid > 0 ? (' + 跨月改有效 ' + s.monthCrossValid) : '')));
+			: (s.monthTrained === null
+				? ('点「明细」展开各状态分布' + (s.monthCrossValid && s.monthCrossValid > 0 ? ('（含跨月改有效 ' + s.monthCrossValid + '）') : ''))
+				: ('已培训 ' + s.monthTrained + ' + 流失 ' + s.monthLost + ' + 等待培训 ' + s.monthWaitTrain + ' + 取消培训 ' + s.monthCancelTrain + ' + 面试拒绝 ' + s.monthReject
+					+ (s.monthCrossValid && s.monthCrossValid > 0 ? (' + 跨月改有效 ' + s.monthCrossValid) : ''))));
 		setText('dsh-hm-month-arrived', dashState.monthLoading && s.monthArrived === null ? '…' : fmtVal(s.monthArrived));
 		setText('dsh-hm-month-arrived-sub', (s.monthValid !== null && s.monthInvalidAttend !== null)
 			? ('有效 ' + s.monthValid + ' + 无效 ' + s.monthInvalidAttend)
@@ -4452,7 +4454,7 @@ function formatNumberCopyText(row, mode) {
 					user ? h('span', { id: 'dsh-hm-user-badge', className: 'dsh-badge', text: '账号：' + user }) : null,
 					h('span', { id: 'dsh-hm-status', className: 'dsh-status', text: '准备就绪' }),
 				]),
-				h('div', { className: 'dsh-actions' }, [refDayBtn, refMonthBtn, refTotalBtn, refBtn]),
+				h('div', { className: 'dsh-actions' }, [refBtn]),
 			]),
 			h('div', { className: 'dsh-sec' }, [
 				h('div', { className: 'dsh-sec-hd' }, [
@@ -4460,6 +4462,7 @@ function formatNumberCopyText(row, mode) {
 						h('span', { text: '总计' }),
 						h('span', { className: 'dsh-sec-sub', text: '全时段状态筛选' }),
 					]),
+					h('div', { className: 'dsh-ctrl' }, [refDayBtn, refMonthBtn, refTotalBtn]),
 				]),
 				h('div', { className: 'dsh-grid-3' }, [
 					mkCard('', '已培训', 'dsh-hm-total-trained', '状态 = 已培训'),
@@ -4742,12 +4745,18 @@ function formatNumberCopyText(row, mode) {
 	}
 
 	function ensureHomeDataLoaded() {
-		if (Object.keys(dashState.counts).length || dashState.loading) return;
+		if (dashState.inited || dashState.loading) return;
+		dashState.inited = true;
 		if (!loadHomeCache()) {
-			dashState.statusText = '未拉取（点「刷新全部」同步数据）';
+			dashState.statusText = '正在初始化数据…';
 			dashState.statusBad = false;
 		}
 		paintDashboard();
+		var initRunId = dashState.runId;
+		window.setTimeout(function () {
+			if (dashState.loading || dashState.runId !== initRunId) return;
+			loadDashboardData('all', false);
+		}, 0);
 	}
 
 	function syncHeaderHomeBtn(nativeLi) {
