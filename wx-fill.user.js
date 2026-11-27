@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.9.5
+// @version      2.9.6
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.9.5 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.9.6 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.9.5';
+	var VERSION = '2.9.6';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -729,7 +729,8 @@ function summarizeDashboard(counts) {
 	var mValidParts = [mTrained, mLost, mWaitTrain, mCancelTrain, mReject];
 	var monthValidBase = sumIfReady(mValidParts);
 	var fastValidBase = numOrNull(c.monthFastValid);
-	var effectiveValidBase = monthValidBase !== null ? monthValidBase : fastValidBase;
+	var preferFast = c.monthValidSource === 'fast' && fastValidBase !== null;
+	var effectiveValidBase = preferFast ? fastValidBase : (monthValidBase !== null ? monthValidBase : fastValidBase);
 	var monthValid = effectiveValidBase === null ? null : effectiveValidBase + (mCrossValid && mCrossValid > 0 ? mCrossValid : 0);
 	var monthInvalidAttend = numOrNull(c.monthInvalidAttend);
 	var monthArrivedRaw = numOrNull(c.monthArrived);
@@ -755,7 +756,7 @@ function summarizeDashboard(counts) {
 		monthValid: monthValid,
 		monthJoinRate: formatDashboardRate(monthJoined, monthValid),
 		monthValidRate: formatDashboardRate(monthValid, monthArrived),
-		monthValidFormula: monthValidBase === null ? '' : (mValidParts.join(' + ') + (mCrossValid && mCrossValid > 0 ? ' + ' + mCrossValid : '')),
+		monthValidFormula: (!preferFast && monthValidBase !== null) ? (mValidParts.join(' + ') + (mCrossValid && mCrossValid > 0 ? ' + ' + mCrossValid : '')) : '',
 		dayWaiting: numOrNull(c.dayWaiting),
 		dayInterviewed: numOrNull(c.dayInterviewed),
 		dayValid: numOrNull(c.dayValid),
@@ -1036,6 +1037,23 @@ function summarizeDayRows(rows) {
 		dayInvalid: dayInvalid,
 		dayValidBreakdown: groupBreakdown(validRows, rowStatusText),
 	};
+}
+
+function mergeDayRowsIntoMonthRows(monthRows, dayIso, dayRows) {
+	var target = String(dayIso || '').trim().slice(0, 10);
+	var base = Array.isArray(monthRows) ? monthRows : [];
+	var incoming = Array.isArray(dayRows) ? dayRows : [];
+	if (!target) return base.slice();
+	var out = [];
+	for (var i = 0; i < base.length; i += 1) {
+		var r = base[i];
+		if (r && normalizeLogYmd(r.interview_date) === target) continue;
+		out.push(r);
+	}
+	for (var j = 0; j < incoming.length; j += 1) {
+		if (incoming[j]) out.push(incoming[j]);
+	}
+	return out;
 }
 
 function daysInMonth(ym) {
@@ -3971,7 +3989,7 @@ function formatNumberCopyText(row, mode) {
 		var crossNameSuffix = (s.monthCrossNames && s.monthCrossNames.length) ? ('（' + s.monthCrossNames.join('、') + '）') : '';
 		setText('dsh-hm-month-valid-sub', s.monthValid === null
 			? '已培训 + 流失 + 等待培训 + 取消培训 + 面试拒绝'
-			: (s.monthTrained === null
+			: (!s.monthValidFormula || s.monthTrained === null
 				? ('点「明细」展开各状态分布' + (s.monthCrossValid && s.monthCrossValid > 0 ? ('（含跨月改有效 ' + s.monthCrossValid + '）' + crossNameSuffix) : ''))
 				: ('已培训 ' + s.monthTrained + ' + 流失 ' + s.monthLost + ' + 等待培训 ' + s.monthWaitTrain + ' + 取消培训 ' + s.monthCancelTrain + ' + 面试拒绝 ' + s.monthReject
 					+ (s.monthCrossValid && s.monthCrossValid > 0 ? (' + 跨月改有效 ' + s.monthCrossValid + crossNameSuffix) : ''))));
@@ -4068,6 +4086,8 @@ function formatNumberCopyText(row, mode) {
 					monthReject: c.monthReject,
 					monthCrossValid: c.monthCrossValid,
 					monthCrossNames: Array.isArray(c.monthCrossNames) ? c.monthCrossNames : [],
+					monthFastValid: c.monthFastValid,
+					monthValidSource: c.monthValidSource || '',
 					monthInvalidAttend: c.monthInvalidAttend,
 					monthArrived: c.monthArrived,
 					monthDaily: c.monthDaily || {},
@@ -4122,6 +4142,8 @@ function formatNumberCopyText(row, mode) {
 				next.monthReject = mEntry.monthReject;
 				next.monthCrossValid = mEntry.monthCrossValid;
 				next.monthCrossNames = Array.isArray(mEntry.monthCrossNames) ? mEntry.monthCrossNames : [];
+				next.monthFastValid = mEntry.monthFastValid;
+				next.monthValidSource = mEntry.monthValidSource || '';
 				next.monthInvalidAttend = mEntry.monthInvalidAttend;
 				next.monthArrived = mEntry.monthArrived;
 				next.monthDaily = mEntry.monthDaily || {};
@@ -4137,6 +4159,7 @@ function formatNumberCopyText(row, mode) {
 				next.dayValid = dEntry.dayValid;
 				next.dayValidBreakdown = dEntry.dayValidBreakdown || '';
 				next.dayInvalid = dEntry.dayInvalid;
+				dashState.dayLoadedIso = dashState.day;
 				hasAny = true;
 			}
 			if (!hasAny) return false;
@@ -4146,6 +4169,27 @@ function formatNumberCopyText(row, mode) {
 			dashState.statusBad = false;
 			return true;
 		} catch (error) { return false; }
+	}
+
+	function readPrevDaySnapshot(dayIso) {
+		if (dashState.dayLoadedIso === dayIso
+			&& typeof dashState.counts.dayValid === 'number'
+			&& typeof dashState.counts.dayInterviewed === 'number') {
+			return { dayValid: dashState.counts.dayValid, dayInterviewed: dashState.counts.dayInterviewed };
+		}
+		try {
+			if (window.localStorage && typeof window.localStorage.getItem === 'function') {
+				var raw = window.localStorage.getItem(HOME_CACHE_KEY);
+				if (raw) {
+					var data = JSON.parse(raw);
+					var entry = data && data.days && data.days[dayIso];
+					if (entry && typeof entry.dayValid === 'number' && typeof entry.dayInterviewed === 'number') {
+						return { dayValid: entry.dayValid, dayInterviewed: entry.dayInterviewed };
+					}
+				}
+			}
+		} catch (error) { /* ignore */ }
+		return null;
 	}
 
 	function loadDashboardData(scope, forceMeta) {
@@ -4209,6 +4253,7 @@ function formatNumberCopyText(row, mode) {
 			dashState.counts.dayValid = ddSum.dayValid;
 			dashState.counts.dayInvalid = ddSum.dayInvalid;
 			dashState.counts.dayValidBreakdown = ddSum.dayValidBreakdown;
+			dashState.dayLoadedIso = dashState.day;
 			dashState.loading = false;
 			dashState.dayLoading = false;
 			dashState.statusText = '就绪（已复用本月明细，0 请求）';
@@ -4218,6 +4263,7 @@ function formatNumberCopyText(row, mode) {
 			return Promise.resolve();
 		}
 
+		var prevDaySnap = (!includeMonth && includeDayInterviewed && dashState.day) ? readPrevDaySnapshot(dashState.day) : null;
 		if (includeDayInterviewed) {
 			dashState.dayLoading = true;
 			dashState.counts.dayInterviewed = null;
@@ -4347,6 +4393,7 @@ function formatNumberCopyText(row, mode) {
 					} else if (t.isFastReject) {
 						fastRejectCount = res;
 						dashState.counts.monthFastValid = (fastPassCount || 0) + (fastRejectCount || 0);
+						dashState.counts.monthValidSource = 'fast';
 						paintDashboard();
 					} else if (t.withTrainOnly) {
 						var toSum = summarizeTrainRows(res.rows);
@@ -4432,6 +4479,7 @@ function formatNumberCopyText(row, mode) {
 						dashState.counts.monthArrived = mSum.monthArrived;
 						dashState.counts.monthDaily = mSum.monthDaily;
 						dashState.counts.monthChartYm = dashState.month;
+						dashState.counts.monthValidSource = 'detail';
 						dashState.counts.monthTruncatedNote = res.truncated ? ('超过翻页上限，当前统计前 ' + res.rows.length + ' 条') : '';
 						dashState.monthLoading = false;
 						paintDashboard();
@@ -4447,6 +4495,60 @@ function formatNumberCopyText(row, mode) {
 							dashState.counts.dayValid = dSum.dayValid;
 							dashState.counts.dayInvalid = dSum.dayInvalid;
 							dashState.counts.dayValidBreakdown = dSum.dayValidBreakdown;
+							dashState.dayLoadedIso = dashState.day;
+							if (!includeMonth && String(dashState.day || '').slice(0, 7) === dashState.month) {
+								var ddKey = dashState.day.slice(8, 10);
+								if (dashState.counts.monthChartYm === dashState.month) {
+									var nextDaily = Object.assign({}, dashState.counts.monthDaily || {});
+									nextDaily[ddKey] = dSum.dayValid;
+									dashState.counts.monthDaily = nextDaily;
+								}
+								if (dashState.counts.monthValidSource !== 'fast'
+									&& Array.isArray(dashState.monthAllRows)
+									&& dashState.monthAllRows.length > 0
+									&& dashState.monthAllYm === dashState.month) {
+									var mergedRows = mergeDayRowsIntoMonthRows(dashState.monthAllRows, dashState.day, res.rows);
+									dashState.monthAllRows = mergedRows;
+									var nextArrived = prevDaySnap && dashState.counts.monthArrived != null
+										? Math.max(0, dashState.counts.monthArrived + (res.count - prevDaySnap.dayInterviewed))
+										: (dashState.counts.monthArrived != null ? dashState.counts.monthArrived : mergedRows.length);
+									var mInjSum = summarizeMonthRows(mergedRows, nextArrived, dashState.month);
+									dashState.counts.monthTrained = mInjSum.monthTrained;
+									dashState.counts.monthLost = mInjSum.monthLost;
+									dashState.counts.monthWaitTrain = mInjSum.monthWaitTrain;
+									dashState.counts.monthCancelTrain = mInjSum.monthCancelTrain;
+									dashState.counts.monthReject = mInjSum.monthReject;
+									dashState.counts.monthInvalidAttend = mInjSum.monthInvalidAttend;
+									dashState.counts.monthArrived = mInjSum.monthArrived;
+									dashState.counts.monthDaily = mInjSum.monthDaily;
+									dashState.counts.monthChartYm = dashState.month;
+									dashState.counts.monthValidSource = 'detail';
+									dashState.counts.monthCommunityRows = summarizeMonthByCommunity(
+										mergedRows,
+										dashState.lastTrainYm === dashState.month ? (dashState.lastTrainRows || []) : [],
+										dashState.lastCrossCheckedYm === dashState.month ? (dashState.lastCrossResIds || []) : []
+									);
+								} else if (prevDaySnap) {
+									var deltaValid = dSum.dayValid - prevDaySnap.dayValid;
+									var deltaArrived = res.count - prevDaySnap.dayInterviewed;
+									if (typeof dashState.counts.monthFastValid === 'number') {
+										dashState.counts.monthFastValid = Math.max(0, dashState.counts.monthFastValid + deltaValid);
+									} else if (deltaValid !== 0) {
+										var cNow = dashState.counts;
+										var detailSum = [cNow.monthTrained, cNow.monthLost, cNow.monthWaitTrain, cNow.monthCancelTrain, cNow.monthReject]
+											.every(function (v) { return typeof v === 'number'; })
+											? (cNow.monthTrained + cNow.monthLost + cNow.monthWaitTrain + cNow.monthCancelTrain + cNow.monthReject)
+											: null;
+										if (detailSum !== null) {
+											dashState.counts.monthFastValid = Math.max(0, detailSum + deltaValid);
+											dashState.counts.monthValidSource = 'fast';
+										}
+									}
+									if (typeof dashState.counts.monthArrived === 'number') {
+										dashState.counts.monthArrived = Math.max(0, dashState.counts.monthArrived + deltaArrived);
+									}
+								}
+							}
 						}
 						if (t.lastDayTask || (t.lastDayInterviewed && !includeDayWaiting)) dashState.dayLoading = false;
 					} else {
