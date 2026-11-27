@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         外宣邀约 · 一键填入（填表助手）
 // @namespace    wx-invite-helper
-// @version      2.9.1
+// @version      2.9.2
 // @description  页签条上多一个「＋」：同一个页面能开多个页签、各自设筛选条件（在页签上点右键也行）
 // @description  点开「新增」自动预填固定值并按空档挑好预约时间；支持工作台 #dsh-fill= 推送与「贴」/ Alt+Shift+V 粘贴填表（提交由你自己点）
 // @author       annan
@@ -11,7 +11,7 @@
 // @run-at       document-end
 // ==/UserScript==
 
-/* 外宣邀约 · 一键填入（填表助手 v2.9.1 二合一版）
+/* 外宣邀约 · 一键填入（填表助手 v2.9.2 二合一版）
    ① 页签条「＋」或右键页签：同一页面多开页签、各自筛选。
    ② 点开「新增」：自动填固定项、带出上次基地/社区，并挑最近可约时段。
    ③ 工作台推 #dsh-fill= 或点页签条「贴」/ 按 Alt+Shift+V：粘贴核心信息 JSON 一键填入。
@@ -23,7 +23,7 @@
 
 	var FIXED = {"channel":"1","post":"运营","gender":"男"};                  // 固定值：招聘渠道 / 面试岗位 / 性别
 	var WX_FORM = "/XianxiaZp/Yaoyue/Post";               // 「新增」那一页的路径
-	var VERSION = '2.9.1';
+	var VERSION = '2.9.2';
 	// 火狐 Greasemonkey 4 等 WebExtension 隔离沙箱会为 window 套上 Xray 包装：
 	// 1) 沙箱内全局 fetch 禁止传相对路径（会报 "/Basic/... is not a valid URL."），需先补全 origin；
 	// 2) 隔离沙箱下不能调用 Xray 包装过的 window.fetch（传沙箱对象会触发 Permission denied），应直接使用沙箱自身的 fetch 或 XHR。
@@ -748,6 +748,7 @@ function summarizeDashboard(counts) {
 		monthCancelTrain: mCancelTrain,
 		monthReject: mReject,
 		monthCrossValid: mCrossValid,
+		monthCrossNames: Array.isArray(c.monthCrossNames) ? c.monthCrossNames : [],
 		monthInvalidAttend: monthInvalidAttend,
 		monthArrived: monthArrived,
 		monthJoined: monthJoined,
@@ -843,6 +844,30 @@ function collectCrossMonthCandidateIds(rows, monthStart) {
 		}
 	}
 	return ids;
+}
+
+function extractCrossMonthNames(rows, ids) {
+	var list = Array.isArray(rows) ? rows : [];
+	var idList = Array.isArray(ids) ? ids : [];
+	if (!idList.length) return [];
+	var byIdMap = {};
+	var clean = function (v) {
+		var s = String(v == null ? '' : v).trim();
+		return (s && s !== '-' && s !== '—' && s !== '--') ? s : '';
+	};
+	for (var i = 0; i < list.length; i += 1) {
+		var r = list[i];
+		if (!r || r.id == null) continue;
+		var key = String(r.id).trim();
+		if (!key || byIdMap[key]) continue;
+		byIdMap[key] = clean(r.real_name) || clean(r.wechat_username) || clean(r.boss_username) || ('#' + key);
+	}
+	var out = [];
+	for (var j = 0; j < idList.length; j += 1) {
+		var cid = String(idList[j] || '').trim();
+		if (cid && byIdMap[cid]) out.push(byIdMap[cid]);
+	}
+	return out;
 }
 
 function rowStatusText(r) {
@@ -3588,19 +3613,27 @@ function formatNumberCopyText(row, mode) {
 			var parsed = raw ? JSON.parse(raw) : null;
 			var entry = parsed && parsed['month_scanned:' + monthStart];
 			if (entry && typeof entry.count === 'number') {
-				return { count: entry.count, ids: Array.isArray(entry.ids) ? entry.ids : [] };
+				return {
+					count: entry.count,
+					ids: Array.isArray(entry.ids) ? entry.ids : [],
+					names: Array.isArray(entry.names) ? entry.names : [],
+				};
 			}
 		} catch (e) { /* ignore */ }
 		return null;
 	}
 
-	function saveCachedMonthCrossResult(monthStart, count, ids) {
+	function saveCachedMonthCrossResult(monthStart, count, ids, names) {
 		try {
 			if (!window.localStorage) return;
 			var raw = window.localStorage.getItem(HOME_CROSS_LOG_CACHE_KEY);
 			var parsed = raw ? JSON.parse(raw) : null;
 			var cache = parsed && typeof parsed === 'object' ? parsed : {};
-			cache['month_scanned:' + monthStart] = { count: Number(count || 0), ids: Array.isArray(ids) ? ids : [] };
+			cache['month_scanned:' + monthStart] = {
+				count: Number(count || 0),
+				ids: Array.isArray(ids) ? ids : [],
+				names: Array.isArray(names) ? names : [],
+			};
 			window.localStorage.setItem(HOME_CROSS_LOG_CACHE_KEY, JSON.stringify(cache));
 		} catch (e) { /* ignore */ }
 	}
@@ -3929,12 +3962,13 @@ function formatNumberCopyText(row, mode) {
 		setText('dsh-hm-month-valid', dashState.monthLoading && s.monthValid === null ? '…' : fmtVal(s.monthValid));
 		setText('dsh-hm-month-valid-rate', dashState.monthLoading && s.monthValidRate === '—' ? '…' : s.monthValidRate);
 		setText('dsh-hm-month-valid-formula', s.monthValidFormula ? ('（' + s.monthValidFormula + '）') : '');
+		var crossNameSuffix = (s.monthCrossNames && s.monthCrossNames.length) ? ('（' + s.monthCrossNames.join('、') + '）') : '';
 		setText('dsh-hm-month-valid-sub', s.monthValid === null
 			? '已培训 + 流失 + 等待培训 + 取消培训 + 面试拒绝'
 			: (s.monthTrained === null
-				? ('点「明细」展开各状态分布' + (s.monthCrossValid && s.monthCrossValid > 0 ? ('（含跨月改有效 ' + s.monthCrossValid + '）') : ''))
+				? ('点「明细」展开各状态分布' + (s.monthCrossValid && s.monthCrossValid > 0 ? ('（含跨月改有效 ' + s.monthCrossValid + '）' + crossNameSuffix) : ''))
 				: ('已培训 ' + s.monthTrained + ' + 流失 ' + s.monthLost + ' + 等待培训 ' + s.monthWaitTrain + ' + 取消培训 ' + s.monthCancelTrain + ' + 面试拒绝 ' + s.monthReject
-					+ (s.monthCrossValid && s.monthCrossValid > 0 ? (' + 跨月改有效 ' + s.monthCrossValid) : ''))));
+					+ (s.monthCrossValid && s.monthCrossValid > 0 ? (' + 跨月改有效 ' + s.monthCrossValid + crossNameSuffix) : ''))));
 		setText('dsh-hm-month-arrived', dashState.monthLoading && s.monthArrived === null ? '…' : fmtVal(s.monthArrived));
 		var mInvalidDisplay = s.monthInvalidAttend !== null
 			? s.monthInvalidAttend
@@ -4027,6 +4061,7 @@ function formatNumberCopyText(row, mode) {
 					monthCancelTrain: c.monthCancelTrain,
 					monthReject: c.monthReject,
 					monthCrossValid: c.monthCrossValid,
+					monthCrossNames: Array.isArray(c.monthCrossNames) ? c.monthCrossNames : [],
 					monthInvalidAttend: c.monthInvalidAttend,
 					monthArrived: c.monthArrived,
 					monthDaily: c.monthDaily || {},
@@ -4080,6 +4115,7 @@ function formatNumberCopyText(row, mode) {
 				next.monthCancelTrain = mEntry.monthCancelTrain;
 				next.monthReject = mEntry.monthReject;
 				next.monthCrossValid = mEntry.monthCrossValid;
+				next.monthCrossNames = Array.isArray(mEntry.monthCrossNames) ? mEntry.monthCrossNames : [];
 				next.monthInvalidAttend = mEntry.monthInvalidAttend;
 				next.monthArrived = mEntry.monthArrived;
 				next.monthDaily = mEntry.monthDaily || {};
@@ -4131,6 +4167,7 @@ function formatNumberCopyText(row, mode) {
 				dashState.counts.monthTrainLost = null;
 				dashState.counts.monthFastValid = null;
 				dashState.counts.monthCrossValid = null;
+				dashState.counts.monthCrossNames = [];
 				dashState.counts.monthArrived = null;
 			}
 			if (includeMonthDetail || dashState.counts.monthChartYm !== dashState.month) {
@@ -4231,8 +4268,10 @@ function formatNumberCopyText(row, mode) {
 				}
 				if (hasIrFast) {
 					dashState.counts.monthCrossValid = cachedMonthCross ? cachedMonthCross.count : 0;
+					dashState.counts.monthCrossNames = cachedMonthCross ? (cachedMonthCross.names || []) : [];
 					crossResIds = cachedMonthCross ? (cachedMonthCross.ids || []) : [];
 					dashState.lastCrossResIds = crossResIds;
+					dashState.lastCrossResNames = dashState.counts.monthCrossNames;
 					tasks.push({ key: 'monthTrainTrained', label: '月报 · 入职-已培训(速查)', spec: { status: '已培训', dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
 					tasks.push({ key: 'monthTrainLost', label: '月报 · 入职-流失(速查)', lastFastTrain: true, spec: { status: '流失', dateType: trainDt, dateFrom: mr.start, dateTo: mr.end } });
 				} else {
@@ -4351,9 +4390,11 @@ function formatNumberCopyText(row, mode) {
 						var crossIds = collectCrossMonthCandidateIds(trainRows, mr.start);
 						if (!crossIds.length) {
 							dashState.counts.monthCrossValid = 0;
+							dashState.counts.monthCrossNames = [];
 							crossResIds = [];
 							dashState.lastCrossResIds = [];
-							saveCachedMonthCrossResult(mr.start, 0, []);
+							dashState.lastCrossResNames = [];
+							saveCachedMonthCrossResult(mr.start, 0, [], []);
 							if (dashState.counts.monthFastValid != null) dashState.monthLoading = false;
 							paintDashboard();
 							return step(idx + 1);
@@ -4366,8 +4407,11 @@ function formatNumberCopyText(row, mode) {
 							if (dashState.runId !== runId) return;
 							dashState.counts.monthCrossValid = crossRes.count;
 							crossResIds = crossRes.ids || [];
+							var crossNames = extractCrossMonthNames(trainRows, crossResIds);
+							dashState.counts.monthCrossNames = crossNames;
 							dashState.lastCrossResIds = crossResIds;
-							saveCachedMonthCrossResult(mr.start, crossRes.count, crossResIds);
+							dashState.lastCrossResNames = crossNames;
+							saveCachedMonthCrossResult(mr.start, crossRes.count, crossResIds, crossNames);
 							if (dashState.counts.monthFastValid != null) dashState.monthLoading = false;
 							paintDashboard();
 							return step(idx + 1);
@@ -4660,6 +4704,7 @@ function formatNumberCopyText(row, mode) {
 		monthCrossBtn.addEventListener('click', function () {
 			if (dashState.lastCrossCheckedYm === dashState.month && Array.isArray(dashState.lastCrossResIds)) {
 				dashState.counts.monthCrossValid = dashState.lastCrossResIds.length;
+				dashState.counts.monthCrossNames = Array.isArray(dashState.lastCrossResNames) ? dashState.lastCrossResNames : [];
 				dashState.statusText = '跨月记录已核对（同会话复用，' + dashState.lastCrossResIds.length + ' 条）';
 				dashState.statusBad = false;
 				paintDashboard();
